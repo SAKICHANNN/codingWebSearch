@@ -1,0 +1,40 @@
+[project]
+name = "codingmcp"
+version = "0.2.0"
+description = "MCP server for coding agents — intelligent web search, documentation lookup, error debugging, and deep research with 14 specialized tools"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "SAKICHANNN" },
+]
+keywords = [
+    "mcp", "model-context-protocol", "web-search", "coding-agent",
+    "ai-agent", "llm-tools", "code-search", "debugging",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "mcp>=1.0.0",
+    "ddgs>=9.0.0",
+    "httpx>=0.27.0",
+    "beautifulsoup4>=4.12.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/SAKICHANNN/codingmcp"
+Repository = "https://github.com/SAKICHANNN/codingmcp"
+Issues = "https://github.com/SAKICHANNN/codingmcp/issues"
+
+[project.scripts]
+codingmcp = "server:main"
