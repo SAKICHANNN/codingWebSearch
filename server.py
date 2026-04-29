@@ -17,7 +17,13 @@ from mcp.server.fastmcp import FastMCP
 # ===========================================================================
 # MCP Server
 # ===========================================================================
-mcp = FastMCP("websearch")
+mcp = FastMCP("codingWebSearch")
+
+class SearchError(Exception):
+    """Raised when a search operation fails after all retries/fallbacks.
+    FastMCP converts this to an isError=true tool result."""
+    pass
+
 
 # ===========================================================================
 # Constants
@@ -111,6 +117,14 @@ def _session_add(session_id: str, query: str, results: list[dict]) -> None:
         ]
         for sid in stale_sessions:
             del _search_sessions[sid]
+        # Fallback: if still over limit, remove oldest by last activity
+        if len(_search_sessions) > 50:
+            oldest = sorted(
+                [(sid, s["history"][-1]["time"] if s["history"] else 0) for sid, s in _search_sessions.items()],
+                key=lambda x: x[1],
+            )
+            for sid, _ in oldest[:len(_search_sessions) - 50]:
+                del _search_sessions[sid]
 
     if session_id not in _search_sessions:
         _search_sessions[session_id] = {"history": [], "context": {}}
@@ -249,9 +263,10 @@ def _optimize_query(query: str, category: str = "code") -> str:
             q = f"{q} API reference documentation"
 
     if category == "compare":
-        # Ensure comparison format
+        # Ensure comparison format — use word-boundary regex to catch edge positions
         if " vs " not in q.lower() and " versus " not in q.lower():
-            q = q.replace(" compare ", " vs ").replace(" comparison ", " vs ")
+            q = re.sub(r'\bcompare\b', 'vs', q, flags=re.IGNORECASE)
+            q = re.sub(r'\bcomparison\b', 'vs', q, flags=re.IGNORECASE)
 
     return q
 
@@ -417,13 +432,15 @@ def _is_duplicate(result: dict, seen: list[dict], title_threshold: float = 0.85)
 # Search Engines
 # ===========================================================================
 
-def _search_ddgs(query: str, region="wt-wt", safesearch="off",
-                 timelimit: str | None = None, max_results=10) -> list[dict]:
-    with DDGS(timeout=SEARCH_TIMEOUT) as ddgs:
-        raw = list(ddgs.text(
-            query, region=region, safesearch=safesearch,
-            timelimit=timelimit, max_results=max_results,
-        ))
+async def _search_ddgs(query: str, region="wt-wt", safesearch="off",
+                       timelimit: str | None = None, max_results=10) -> list[dict]:
+    def _sync_search():
+        with DDGS(timeout=SEARCH_TIMEOUT) as ddgs:
+            return list(ddgs.text(
+                query, region=region, safesearch=safesearch,
+                timelimit=timelimit, max_results=max_results,
+            ))
+    raw = await asyncio.to_thread(_sync_search)
     return [
         {"title": r.get("title", ""), "href": r.get("href", ""),
          "body": r.get("body", ""), "engine": "ddgs",
@@ -517,7 +534,7 @@ async def _search_baidu(query: str, max_results: int) -> list[dict]:
     return results
 
 async def _search_yahoo(query: str, max_results: int) -> list[dict]:
-    results = _search_ddgs(query, max_results=max_results)
+    results = await _search_ddgs(query, max_results=max_results)
     for r in results:
         r["engine"] = "yahoo"
     return results
@@ -541,7 +558,7 @@ _NO_KEY_MSGS = {
 async def _search_with_engine(query, engine, max_results=10, region="wt-wt",
                                safesearch="off", timelimit=None) -> list[dict]:
     if engine == "auto":
-        return _search_ddgs(query, region, safesearch, timelimit, max_results)
+        return await _search_ddgs(query, region, safesearch, timelimit, max_results)
     if engine == "brave":
         return await _search_brave_api(query, max_results)
     if engine == "google":
@@ -562,8 +579,12 @@ def _resolve_engines(requested: str) -> list[str]:
             return engines
     if requested == "all":
         return _ENGINE_PRIORITY.copy()
-    if requested in _ENGINE_INFO:
-        return [requested]
+    requested_lower = requested.lower()
+    if requested_lower in _ENGINE_INFO:
+        return [requested_lower]
+    if requested:
+        # Unknown engine — log and fall back to auto
+        pass
     return ["auto"]
 
 # ===========================================================================
@@ -580,7 +601,7 @@ async def _do_search(
     output_format: str = "full",
 ) -> str:
     if not query or not query.strip():
-        return "Error: search query is empty. Please provide a search query."
+        raise SearchError("Search query is empty. Please provide a search query.")
 
     t_start = time.time()
     max_results = max(1, min(max_results, MAX_RESULTS))
@@ -596,15 +617,15 @@ async def _do_search(
             sites = " OR ".join(f"site:{d}" for d in scoped_domains[:3])
             search_query = f"({sites}) {search_query}"
 
-    # Cache check
-    cache_key = _cache_key(label, search_query, engine, region=region, fmt=output_format)
+    # Cache check — key includes max_results so different sizes don't share stale entries
+    cache_key = _cache_key(label, search_query, engine, region=region, max_results=max_results, fmt=output_format)
     cached = _cache_get(cache_key)
     if cached:
         if output_format == "compact":
-            return _format_compact(query, cached[:max_results], label)
+            return _format_compact(query, cached, label)
         elif output_format == "links":
-            return _format_links(query, cached[:max_results], label)
-        return _format_results(query, cached[:max_results], label, show_authority=sort_by_authority)
+            return _format_links(query, cached, label)
+        return _format_results(query, cached, label, show_authority=sort_by_authority)
 
     engines_to_try = _resolve_engines(engine)
 
@@ -616,9 +637,9 @@ async def _do_search(
             if isinstance(required_key, str) and "+" in required_key:
                 keys = required_key.split("+")
                 if not all(os.environ.get(k) for k in keys):
-                    return _NO_KEY_MSGS.get(eng, f"'{eng}' needs API keys. Use 'auto' instead.")
+                    return _NO_KEY_MSGS.get(eng, f"'{eng}' needs API keys. Use 'auto' instead. (Engine '{eng}' falls back to auto)")
             elif not os.environ.get(required_key):
-                return _NO_KEY_MSGS.get(eng, f"'{eng}' needs an API key. Use 'auto' instead.")
+                return _NO_KEY_MSGS.get(eng, f"'{eng}' needs an API key. Use 'auto' instead. (Engine '{eng}' falls back to auto)")
 
     # Try engines
     last_errors = []
@@ -676,7 +697,7 @@ async def _do_search(
             break
 
     if all_results:
-        _cache_set(cache_key, all_results[:max_results])
+        _cache_set(cache_key, all_results[:max_results])  # cache_key already scopes to this max_results
         # Record in session
         if session_id:
             _session_add(session_id, query, all_results[:max_results])
@@ -699,7 +720,10 @@ async def _do_search(
         return _format_results(query, final, engine_label, elapsed, show_authority=sort_by_authority)
 
     if last_errors:
-        return f"Search failed.\n" + "\n".join(last_errors[:3]) + "\nTry engine='auto'."
+        raise SearchError(
+            "All search engines failed.\n" + "\n".join(last_errors[:3]) +
+            "\nTry engine='auto' or check API key configuration with list_engines()."
+        )
 
     return f"No results found for '{query}'."
 
@@ -942,12 +966,15 @@ async def search_deep(
     max_results = max(1, min(max_results, 20))
 
     # Step 1: Search
-    search_result = await _do_search(
-        query=topic, label="Deep Research", max_results=max_results,
-        engine=engine, region="wt-wt", safesearch="off", timelimit=None,
-    )
+    try:
+        search_result = await _do_search(
+            query=topic, label="Deep Research", max_results=max_results,
+            engine=engine, region="wt-wt", safesearch="off", timelimit=None,
+        )
+    except SearchError as e:
+        raise SearchError(f"Deep research search failed: {e}") from e
 
-    if "No results" in search_result or "Search failed" in search_result:
+    if "No results" in search_result:
         return search_result
 
     # Step 2: Parse URLs from search results (match URL: prefix in any format)
@@ -1048,11 +1075,11 @@ async def web_fetch(
     """
     html, err = await _fetch(url, timeout)
     if err:
-        return err
+        raise SearchError(err)
 
     text = _extract_text(html)
     if not text:
-        return "No readable text found on this page."
+        raise SearchError("No readable text found on this page.")
 
     title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
     title = title_match.group(1).strip() if title_match else "Untitled"
@@ -1083,7 +1110,7 @@ async def web_fetch_code(
     """
     html, err = await _fetch(url, timeout)
     if err:
-        return err
+        raise SearchError(err)
 
     soup = BeautifulSoup(html, "html.parser")
     code_blocks = []
@@ -1104,7 +1131,7 @@ async def web_fetch_code(
         code_blocks.append(f"```{lang_marker}\n{content.strip()}\n```")
 
     if not code_blocks:
-        return "No code blocks found on this page."
+        raise SearchError("No code blocks found on this page.")
 
     title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
     title = title_match.group(1).strip() if title_match else "Untitled"
@@ -1207,27 +1234,27 @@ export SEARCH_ENGINES=brave,auto
 # MCP Resources — expose domain lists and templates
 # ===========================================================================
 
-@mcp.resource("search://domains/code")
+@mcp.resource("search://domains/code", mime_type="application/json")
 def resource_code_domains() -> str:
     """Code Q&A domains used by search_code."""
     return json.dumps(_CODE_DOMAINS, indent=2)
 
-@mcp.resource("search://domains/docs")
+@mcp.resource("search://domains/docs", mime_type="application/json")
 def resource_docs_domains() -> str:
     """Documentation domains used by search_docs."""
     return json.dumps(_DOCS_DOMAINS, indent=2)
 
-@mcp.resource("search://domains/paper")
+@mcp.resource("search://domains/paper", mime_type="application/json")
 def resource_paper_domains() -> str:
     """Academic paper domains used by search_paper."""
     return json.dumps(_PAPER_DOMAINS, indent=2)
 
-@mcp.resource("search://domains/github")
+@mcp.resource("search://domains/github", mime_type="application/json")
 def resource_github_domains() -> str:
     """Repository domains used by search_github."""
     return json.dumps(_GITHUB_DOMAINS, indent=2)
 
-@mcp.resource("search://authority")
+@mcp.resource("search://authority", mime_type="application/json")
 def resource_authority() -> str:
     """Source authority scores for result ranking."""
     return json.dumps(_AUTHORITY_SCORES, indent=2)
