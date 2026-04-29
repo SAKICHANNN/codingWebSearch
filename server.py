@@ -6,7 +6,7 @@ import os
 import re
 import time
 from difflib import SequenceMatcher
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import quote, quote_plus, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -1287,18 +1287,22 @@ async def search_package(
         max_results: Results if falling back to web search (1-10).
     """
     pkg = package.strip().lower()
+    if not pkg:
+        raise SearchError("Package name is empty. Please provide a package name.")
+    registry_key = registry.lower()
     registries_to_try = []
 
-    if registry == "auto":
+    if registry_key == "auto":
         registries_to_try = ["pypi", "npm", "crates", "go"]
-    elif registry in ("pypi", "npm", "crates", "go"):
-        registries_to_try = [registry]
+    elif registry_key in ("pypi", "npm", "crates", "go"):
+        registries_to_try = [registry_key]
     else:
         return f"Unknown registry '{registry}'. Use: pypi, npm, crates, go, or auto."
 
+    npm_pkg = quote(pkg, safe="@")
     REGISTRY_URLS = {
         "pypi": f"https://pypi.org/pypi/{pkg}/json",
-        "npm": f"https://registry.npmjs.org/{pkg}/latest",
+        "npm": f"https://registry.npmjs.org/{npm_pkg}/latest",
         "crates": f"https://crates.io/api/v1/crates/{pkg}",
         "go": f"https://api.pkg.go.dev/packages/{pkg}",
     }
@@ -1418,6 +1422,7 @@ async def search_github_issues(
     if not query.strip():
         raise SearchError("GitHub issue search requires a query.")
 
+    state_key = state.lower()
     gh_token = os.environ.get("GITHUB_TOKEN", "")
     headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": USER_AGENT}
     if gh_token:
@@ -1427,8 +1432,8 @@ async def search_github_issues(
     search_parts = [query.strip()]
     if repo.strip():
         search_parts.append(f"repo:{repo.strip()}")
-    if state in ("open", "closed"):
-        search_parts.append(f"state:{state}")
+    if state_key in ("open", "closed"):
+        search_parts.append(f"state:{state_key}")
     if labels.strip():
         for label in [lb.strip() for lb in labels.split(",") if lb.strip()]:
             escaped_label = label.replace('"', '\\"')
@@ -1499,7 +1504,10 @@ async def search_security(
         max_results: Max vulnerabilities to show (1-20).
     """
     pkg = package.strip()
+    if not pkg:
+        raise SearchError("Package name is empty. Please provide a package name.")
     max_results = max(1, min(max_results, 20))
+    ecosystem_key = ecosystem.lower()
 
     # Ecosystem auto-detection and mapping
     ECOSYSTEM_MAP = {
@@ -1511,10 +1519,10 @@ async def search_security(
         "rubygems": "RubyGems",
     }
     ecosystems_to_try = []
-    if ecosystem == "auto":
+    if ecosystem_key == "auto":
         ecosystems_to_try = ["PyPI", "npm", "crates.io", "Go", "Maven", "RubyGems"]
-    elif ecosystem.lower() in ECOSYSTEM_MAP:
-        ecosystems_to_try = [ECOSYSTEM_MAP[ecosystem.lower()]]
+    elif ecosystem_key in ECOSYSTEM_MAP:
+        ecosystems_to_try = [ECOSYSTEM_MAP[ecosystem_key]]
     else:
         ecosystems_to_try = [ecosystem]
 
@@ -1530,7 +1538,7 @@ async def search_security(
         fixed_versions = list(dict.fromkeys(fixed_versions))
         return ", ".join(fixed_versions) if fixed_versions else "not specified"
 
-    auto_mode = ecosystem == "auto"
+    auto_mode = ecosystem_key == "auto"
     checked_ecosystems = []
     results = []
     for eco in ecosystems_to_try:
@@ -1614,7 +1622,7 @@ async def search_tutorial(
     level_q = {"beginner": "getting started tutorial for beginners",
                "intermediate": "intermediate guide tutorial",
                "advanced": "advanced deep dive guide"}
-    level_part = level_q.get(level, level_q["beginner"])
+    level_part = level_q.get(level.lower(), level_q["beginner"])
     query = f"{technology} {level_part}"
 
     return await _do_search(
@@ -1808,6 +1816,7 @@ async def web_fetch(
         max_length: Max characters to return (default 12000).
         timeout: Request timeout in seconds (default 30).
     """
+    max_length = max(0, max_length)
     html, err = await _fetch(url, timeout)
     if err:
         raise SearchError(err)
@@ -1843,6 +1852,7 @@ async def web_fetch_code(
         max_length: Max characters to return (default 12000).
         timeout: Request timeout (default 30).
     """
+    max_length = max(0, max_length)
     html, err = await _fetch(url, timeout)
     if err:
         raise SearchError(err)

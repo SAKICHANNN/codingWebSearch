@@ -88,7 +88,8 @@ keys = {
     'searxng': bool(os.environ.get('SEARXNG_URL')),
 }
 for k, v in keys.items():
-    print(f'  {k:10s}: {\"✅\" if v else \"❌\"} {v if isinstance(v, str) else \"\"} ')
+    status = 'OK' if v else 'MISSING'
+    print(f'  {k:10s}: {status:7s} {v if isinstance(v, str) else \"\"} ')
 "
 
 # Test a search directly

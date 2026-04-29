@@ -33,6 +33,13 @@ All notable changes to this project will be documented in this file.
   search filters and handles issues with null bodies.
 - Search result formatting and deduplication now tolerate nullable `title`,
   `href`, `body`, and `engine` fields from upstream providers.
+- Package/security lookup now rejects empty package names and treats registry or
+  ecosystem selectors case-insensitively.
+- Scoped npm package names are URL-encoded correctly for direct registry lookup.
+- GitHub issue `state` and tutorial `level` selectors are now case-insensitive.
+- `web_fetch` and `web_fetch_code` normalize negative `max_length` values to zero
+  before truncating output.
+- Troubleshooting diagnostics now use ASCII status text instead of emoji markers.
 
 ## [0.6.0] — 2026-04-29
 

@@ -33,6 +33,16 @@
   quoted labels when needed; null issue bodies render as `(no description)`.
 - Result rendering: search formatters and duplicate detection now tolerate nullable
   upstream fields from search providers.
+- Input normalization: package registry, vulnerability ecosystem, issue state, and
+  tutorial level selectors are now case-insensitive.
+- Package validation: package and security lookups reject empty package names before
+  calling external services.
+- npm registry lookup: scoped package names such as `@types/node` are URL-encoded
+  correctly for direct registry API calls.
+- Fetch truncation: negative `max_length` values normalize to zero instead of
+  producing confusing negative truncation messages.
+- Troubleshooting docs: diagnostic script output now uses ASCII status labels for
+  console portability.
 
 ### New Features
 

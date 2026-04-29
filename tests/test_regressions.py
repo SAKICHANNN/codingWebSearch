@@ -190,8 +190,98 @@ class FetchCodeRegressionTests(unittest.IsolatedAsyncioTestCase):
         elapsed = int(re.search(r"fetched in (\d+)ms", result).group(1))
         self.assertGreaterEqual(elapsed, 15)
 
+    async def test_web_fetch_negative_max_length_truncates_to_zero(self):
+        original = server._fetch
+        html = "<html><title>Example</title><body><p>content</p></body></html>"
+
+        async def fake_fetch(*_args, **_kwargs):
+            return html, None
+
+        server._fetch = fake_fetch
+        try:
+            result = await server.web_fetch("https://example.com/page", max_length=-1)
+        finally:
+            server._fetch = original
+
+        self.assertIn("truncated to 0 chars", result)
+        self.assertNotIn("truncated to -1 chars", result)
+
 
 class ExternalApiRegressionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_search_package_registry_case_and_scoped_npm_url(self):
+        original = server.httpx.AsyncClient
+        urls = []
+
+        class Resp:
+            status_code = 200
+
+            def json(self):
+                return {"name": "@types/node", "version": "1.0.0", "description": None, "license": None}
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def get(self, url, headers=None):
+                urls.append(url)
+                return Resp()
+
+        server.httpx.AsyncClient = Client
+        try:
+            result = await server.search_package("@types/node", registry="NPM")
+        finally:
+            server.httpx.AsyncClient = original
+
+        self.assertIn("### npm: @types/node v1.0.0", result)
+        self.assertIn("@types%2Fnode", urls[0])
+
+    async def test_search_package_rejects_empty_package_name(self):
+        with self.assertRaises(server.SearchError):
+            await server.search_package("   ", registry="pypi")
+
+    async def test_search_security_rejects_empty_package_name(self):
+        with self.assertRaises(server.SearchError):
+            await server.search_security("   ", ecosystem="npm")
+
+    async def test_search_security_auto_is_case_insensitive(self):
+        original = server.httpx.AsyncClient
+        seen = []
+
+        class Resp:
+            status_code = 200
+
+            def json(self):
+                return {}
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def post(self, _url, json):
+                seen.append(json["package"]["ecosystem"])
+                return Resp()
+
+        server.httpx.AsyncClient = Client
+        try:
+            result = await server.search_security("pkg", ecosystem="AUTO")
+        finally:
+            server.httpx.AsyncClient = original
+
+        self.assertIn("checked ecosystems", result)
+        self.assertIn("npm", seen)
+
     async def test_search_security_auto_checks_past_first_no_vulns_ecosystem(self):
         original = server.httpx.AsyncClient
         seen = []
@@ -356,6 +446,57 @@ class ExternalApiRegressionTests(unittest.IsolatedAsyncioTestCase):
             server.httpx.AsyncClient = original
 
         self.assertIn("(no description)", result)
+
+    async def test_github_issue_state_is_case_insensitive(self):
+        original = server.httpx.AsyncClient
+        urls = []
+
+        class Resp:
+            status_code = 200
+            text = "{}"
+
+            def json(self):
+                return {"items": []}
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def get(self, url, headers=None):
+                urls.append(url)
+                return Resp()
+
+        server.httpx.AsyncClient = Client
+        try:
+            await server.search_github_issues(query="x", state="Open")
+        finally:
+            server.httpx.AsyncClient = original
+
+        search_q = unquote(parse_qs(urlparse(urls[0]).query)["q"][0])
+        self.assertIn("state:open", search_q)
+
+    async def test_search_tutorial_level_is_case_insensitive(self):
+        original = server._do_search
+        captured = {}
+
+        async def fake_search(**kwargs):
+            captured.update(kwargs)
+            return kwargs["query"]
+
+        server._do_search = fake_search
+        try:
+            result = await server.search_tutorial("Python", level="Advanced")
+        finally:
+            server._do_search = original
+
+        self.assertIn("advanced deep dive guide", result)
+        self.assertIn("advanced deep dive guide", captured["query"])
 
 
 class FormattingRegressionTests(unittest.TestCase):
