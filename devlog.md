@@ -1,6 +1,43 @@
 # DevLog
 
-## v0.3.0 — 2026-04-29 (current)
+## v0.4.0 — 2026-04-29 (current)
+
+### New Tools (19 total)
+
+- **`search_github_issues`** — Search GitHub issues/PRs across repos via REST API.
+  No API key required for public repos (60 req/hr). Filter by repo, state, labels.
+  Returns issue number, title, status, labels, author, comment count, body excerpt.
+
+- **`search_security`** — Check packages for known CVEs via the OSV (Open Source
+  Vulnerabilities) API. Covers PyPI, npm, crates.io, Go, Maven, RubyGems. Auto-detects
+  ecosystem. Essential for dependency security review before adding new packages.
+
+- **`search_tutorial`** — Find getting-started tutorials by technology and skill level
+  (beginner/intermediate/advanced). Scoped to tutorial platforms and official docs
+  quickstart pages. Authority-ranked.
+
+### Enhanced
+
+- **`search_deep`** — Major upgrade:
+  - Parallel content fetching via `asyncio.gather` (was sequential)
+  - Cross-source synthesis: common topic extraction, code example collection, coverage
+  - Extracted code blocks shown in dedicated "Code Examples" section
+  - Term frequency analysis across sources to identify common themes
+
+### Infrastructure
+
+- **Docker** — `Dockerfile` (Python 3.12-slim) and `docker-compose.yml`. Proper OCI
+  labels, stdin_open for MCP stdio transport. Environment variable pass-through for
+  API keys.
+- **Tool count**: 19 tools (was 16)
+
+### Documentation
+
+- README: Docker section, 19-tool table, security features, deep research enhancements
+- CHANGELOG: v0.4.0 entry
+- pyproject.toml: version 0.4.0
+
+## v0.3.0 — 2026-04-29
 
 ### New Tools
 

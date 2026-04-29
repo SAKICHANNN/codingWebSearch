@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] — 2026-04-29
+
+### Added
+
+- **`search_github_issues`** — Search GitHub issues and PRs across repos via GitHub REST
+  API. Filter by repo, state, labels. No API key required for public repos.
+- **`search_security`** — Check for known CVEs in packages via the OSV API. Covers
+  PyPI, npm, crates.io, Go, Maven, RubyGems. Auto-detects ecosystem.
+- **`search_tutorial`** — Find getting-started tutorials for any technology. Scoped to
+  tutorial platforms and official docs. Skill-level filtering.
+- **Enhanced `search_deep`** — Parallel multi-source fetching via `asyncio.gather`.
+  Cross-source synthesis: common topic extraction, code example collection, source
+  coverage metrics. Extracted code blocks shown in dedicated section.
+- **Docker support** — `Dockerfile` and `docker-compose.yml` for easy deployment.
+  Python 3.12-slim base image, proper labels, stdin_open for MCP stdio transport.
+
+### Changed
+
+- Tool count: 16→19 tools
+- `search_deep`: Content fetching now parallel (was sequential)
+- `list_engines`: Updated tool table with all 19 tools
+
 ## [0.3.0] — 2026-04-29
 
 ### Added

@@ -3,17 +3,17 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-1.0%2B-purple)](https://modelcontextprotocol.io/)
+[![Docker](https://img.shields.io/badge/Docker-supported-blue)](https://docs.docker.com/)
 
 **The ultimate open-source, locally-deployed web search MCP server for coding agents.**
-16 specialized tools, 6 search engines, parallel execution. Designed for programmers,
-researchers, and engineers who need reliable, high-signal search integrated into their
-AI coding workflow. No API key required by default.
+19 specialized tools, 6 search engines, Docker support, CVE checks, parallel execution.
+Designed for programmers, researchers, and engineers. No API key required by default.
 
 ---
 
 ## Quick Start
 
-### Install
+### pip Install
 
 ```bash
 git clone https://github.com/SAKICHANNN/codingWebSearch.git
@@ -21,7 +21,15 @@ cd codingWebSearch
 pip install -r requirements.txt
 ```
 
-### Claude Desktop
+### Docker
+
+```bash
+docker build -t codingwebsearch .
+docker run -i --rm codingwebsearch
+# Or: docker-compose up
+```
+
+### Claude Desktop Config
 
 ```json
 {
@@ -34,7 +42,7 @@ pip install -r requirements.txt
 }
 ```
 
-### Optional: Brave Search API (free tier, better results)
+With Brave Search (recommended free upgrade):
 
 ```json
 {
@@ -42,9 +50,7 @@ pip install -r requirements.txt
     "codingWebSearch": {
       "command": "python",
       "args": ["path/to/codingWebSearch/server.py"],
-      "env": {
-        "BRAVE_SEARCH_API_KEY": "your-key-from-brave.com/search/api/"
-      }
+      "env": { "BRAVE_SEARCH_API_KEY": "your-key-from-brave.com/search/api/" }
     }
   }
 }
@@ -52,53 +58,83 @@ pip install -r requirements.txt
 
 ---
 
-## Tools Reference
+## Tools Reference (19 total)
 
-### Core Search (5 tools)
+### Core Search
 
-| Tool | Purpose | Scoped To |
-|------|---------|-----------|
-| `web_search` | General search, 3 output formats, session tracking | Whole web |
-| `search_code` | Programming Q&A and code examples | Stack Overflow, GitHub, Reddit, dev.to, HN |
-| `search_docs` | API references and official documentation | MDN, readthedocs, PyPI, npm, MS Learn, docs sites |
-| `search_paper` | CS research papers and academic references | arXiv, ACM DL, IEEE, Semantic Scholar, Usenix |
-| `search_github` | Open-source repository search | GitHub, GitLab, Bitbucket, Gitee, SourceForge |
+| Tool | Scope |
+|------|-------|
+| `web_search` | General web search, 3 output formats, session tracking |
+| `search_code` | Stack Overflow, GitHub, Reddit, dev.to, HN |
+| `search_docs` | MDN, readthedocs, PyPI, npm, MS Learn, docs sites |
+| `search_paper` | arXiv, ACM DL, IEEE, Semantic Scholar, Usenix |
+| `search_github` | GitHub, GitLab, Bitbucket, Gitee, SourceForge |
 
-### Coding Agent Tools (6 tools)
-
-| Tool | Purpose | Example |
-|------|---------|---------|
-| `search_error` | Debug errors, auto-detects error codes + strips noise | `search_error("E11000 duplicate key", language="MongoDB")` |
-| `search_api` | API method signatures and parameter docs | `search_api("FastAPI", "Depends")` |
-| `search_compare` | Side-by-side technology comparison | `search_compare("Rust", "Go", aspect="performance")` |
-| `search_deep` | Search + auto-fetch top results' content | `search_deep("Python async patterns", fetch_top=3)` |
-| `search_similar_repos` | Find repos by feature description | `search_similar_repos("async HTTP client", language="Rust")` |
-| `search_package` | **NEW** — Direct package registry lookup (PyPI/npm/crates/go) | `search_package("serde", registry="crates")` |
-
-### Content & News (3 tools)
+### Coding Agent Tools
 
 | Tool | Purpose |
 |------|---------|
-| `search_news` | **NEW** — Tech news: HN, TechCrunch, ArsTechnica, dev.to. Time-filtered (d/w/m/y). |
+| `search_error` | Debug errors — auto-strips noise, detects 10+ error code patterns |
+| `search_api` | API method signatures, parameters, return types |
+| `search_compare` | Side-by-side tech comparison with aspect filtering |
+| `search_deep` | Search + parallel fetch + cross-source synthesis + code extraction |
+| `search_similar_repos` | Find repos by feature description and language |
+| `search_package` | Direct registry lookup: PyPI, npm, crates.io, pkg.go.dev |
+| `search_github_issues` | Search issues/PRs across GitHub — filter by repo, state, labels |
+| `search_security` | Check CVEs via OSV API — PyPI, npm, crates, Go, Maven, RubyGems |
+
+### Content & News
+
+| Tool | Purpose |
+|------|---------|
+| `search_news` | Tech news from HN, TechCrunch, ArsTechnica, dev.to (time-filtered) |
+| `search_tutorial` | Find tutorials by tech and skill level (beginner to advanced) |
 | `web_fetch` | Extract readable content from any URL, preserves code blocks |
-| `web_fetch_code` | Extract only code blocks from a URL |
+| `web_fetch_code` | Extract only code blocks from a URL with language detection |
 
-### Utility (2 tools)
+### Utility
 
 | Tool | Purpose |
 |------|---------|
-| `search_session` | Manage multi-turn search context across queries |
-| `list_engines` | Show engine status, API key config, and setup instructions |
+| `search_session` | Multi-turn search context across queries |
+| `list_engines` | Engine status, API key config, setup instructions |
+
+---
+
+## Key Features
+
+### Search Intelligence
+- **3D result ranking** — authority + freshness + relevance scoring
+- **Source authority** — official docs (1.0) > Stack Overflow (0.85) > blogs (0.5)
+- **Parallel engine execution** — all engines run concurrently via `asyncio.wait`
+- **Smart dedup** — URL exact + title similarity (85%) across multi-engine results
+
+### Security
+- **CVE checking** — `search_security` queries OSV API before you add dependencies
+- **No API key required** — works out of the box with DuckDuckGo
+- **URL validation** — blocks `file://`, `javascript:`, and other dangerous protocols
+
+### Debugging
+- **Error code detection** — MongoDB, Node.js, Python, JS, Java, Go, C/C++, HTTP, SQL
+- **Noise stripping** — removes timestamps, hex addresses, file paths, stack frames
+
+### Deep Research
+- **Cross-source synthesis** — common topic extraction, code collection, coverage metrics
+- **Parallel content fetching** — all source URLs fetched concurrently
+
+### Performance
+- **5-min result caching** — no repeated calls for identical queries
+- **Auto-retry** — exponential backoff (2s→4s→8s)
+- **Async-safe** — all CPU parsing in thread pool, zero event loop blocking
+- **MCP compliant** — `isError: true`, tool/resource annotations, JSON MIME types
 
 ---
 
 ## Output Formats
 
-Every `web_search` supports three formats via `output_format`:
-
 | Format | Output |
 |--------|--------|
-| `full` (default) | Title + URL + snippet + authority tags `[official]`/`[trusted]` |
+| `full` (default) | Title + URL + snippet + `[official]`/`[trusted]` tags |
 | `compact` | `[title](url)` markdown links |
 | `links` | URL only |
 
@@ -108,57 +144,38 @@ Every `web_search` supports three formats via `output_format`:
 
 | Engine | Backend | Free Tier | API Key |
 |--------|---------|-----------|---------|
-| `auto` | DuckDuckGo (aggregates Bing+Yahoo+Brave+Yandex) | **Unlimited** | None |
+| `auto` | DuckDuckGo (Bing+Yahoo+Brave+Yandex) | **Unlimited** | None |
 | `brave` | Brave Search API (independent index) | 2000/mo | `BRAVE_SEARCH_API_KEY` |
 | `google` | Google Custom Search API | 100/day | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` |
 | `bing` | Bing Web Search API v7 | 1000/mo | `BING_SEARCH_API_KEY` |
 | `baidu` | Baidu.com scraping | Unlimited | None |
-| `yahoo` | Yahoo via DuckDuckGo backend | Unlimited | None |
+| `yahoo` | Yahoo via DuckDuckGo | Unlimited | None |
 
-Set `engine="all"` to try every configured engine with **parallel execution** and automatic deduplication.
-
+Set `engine="all"` for parallel multi-engine search with auto-deduplication.
 Set `SEARCH_ENGINES=brave,auto` env var for custom fallback chains.
-
----
-
-## Key Features
-
-### Search Intelligence
-- **3D result ranking** — combines source authority, content freshness, and keyword
-  relevance for optimal result ordering
-- **Source authority scoring** — official docs (1.0) > Stack Overflow (0.85) > blogs
-  (0.5), each result tagged `[official]` or `[trusted]`
-- **Freshness scoring** — detects year mentions and relative time indicators for
-  recency boost
-- **Parallel engine execution** — all configured engines run concurrently via
-  `asyncio.wait` when using `engine="all"`, with 60s overall timeout
-- **Smart dedup** — URL exact match + title similarity (85%) across multi-engine results
-
-### Error Debugging
-- **Error code detection** — recognizes patterns across MongoDB, Node.js, Python,
-  JavaScript, Java, Go, C/C++, HTTP, Oracle/SQL, and Windows
-- **Noise stripping** — auto-removes timestamps, hex addresses, file paths,
-  stack trace frames before searching
-
-### Performance & Reliability
-- **5-minute result caching** — no repeated network calls for identical queries
-- **Auto-retry** — exponential backoff (2s→4s→8s) on rate limits and transient failures
-- **Session tracking** — multi-turn search context, 50 sessions, 1h idle TTL
-- **Async-safe** — all CPU-bound parsing runs in thread pool, no event loop blocking
-- **MCP protocol compliant** — `isError: true` for failures, tool/resource annotations,
-  JSON MIME types on resources
 
 ---
 
 ## MCP Resources
 
-| Resource URI | Content |
-|-------------|---------|
+| URI | Content |
+|-----|---------|
 | `search://domains/code` | Code Q&A domain list |
 | `search://domains/docs` | Documentation domain list |
 | `search://domains/paper` | Academic paper domain list |
 | `search://domains/github` | Repository domain list |
 | `search://authority` | Source authority scores |
+
+---
+
+## Docker
+
+```bash
+docker build -t codingwebsearch .
+docker run -i --rm codingwebsearch
+docker run -i --rm -e BRAVE_SEARCH_API_KEY=key codingwebsearch
+docker-compose up
+```
 
 ---
 
@@ -183,11 +200,3 @@ Set `SEARCH_ENGINES=brave,auto` env var for custom fallback chains.
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
-
----
-
-## Related
-
-- [Model Context Protocol](https://modelcontextprotocol.io/) — official specification
-- [Official MCP servers](https://github.com/modelcontextprotocol/servers) — reference implementations
-- [FastMCP](https://github.com/prefecthq/fastmcp) — Pythonic MCP framework

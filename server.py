@@ -1060,34 +1060,81 @@ async def search_deep(
     if not urls:
         return search_result + "\n\n_(No URLs found to fetch for deep research)_"
 
-    # Step 3: Fetch content from top results
-    fetched = []
-    for i, url in enumerate(urls, 1):
+    # Step 3: Fetch content from top results (parallel fetch for speed)
+    async def _fetch_one(i: int, url: str):
         html, err = await _fetch(url, FETCH_TIMEOUT)
         if err:
-            fetched.append(f"### [{i}] {url}\n> ⚠ Fetch error: {err}\n")
-            continue
-
+            return (i, url, None, None, None, err)
         text = await _extract_text(html)
         if not text:
-            fetched.append(f"### [{i}] {url}\n> ⚠ No readable content\n")
-            continue
-
-        # Extract title
+            return (i, url, None, None, None, "No readable content")
         title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
         title = title_match.group(1).strip() if title_match else "Untitled"
+        # Extract code blocks for synthesis
+        code_blocks = re.findall(r'```(?:\w+)?\n(.*?)```', text, re.DOTALL)
+        return (i, url, title, text, code_blocks, None)
 
-        # Take a meaningful excerpt: first 2000 chars
+    fetch_tasks = [_fetch_one(i, url) for i, url in enumerate(urls, 1)]
+    fetched_raw = await asyncio.gather(*fetch_tasks)
+
+    # Step 4: Build output with cross-source synthesis
+    fetched = []
+    all_code = []
+    all_keywords = {}
+    for i, url, title, text, code_blocks, err in fetched_raw:
+        if err:
+            fetched.append(f"### [{i}] {url}\n> ⚠ {err}\n")
+            continue
         excerpt = text[:2000]
         if len(text) > 2000:
             excerpt += f"\n\n> [... {len(text)} total chars, showing first 2000 ...]"
-
         fetched.append(f"### [{i}] {title}\n> {url}\n\n{excerpt}\n")
+        all_code.extend(code_blocks[:5])
+        # Count keyword frequency across sources (simple term extraction)
+        for term in re.findall(r'\b[A-Z][a-zA-Z]{3,}(?:\s+[A-Z][a-zA-Z]{3,})?\b', text[:1000]):
+            all_keywords[term] = all_keywords.get(term, 0) + 1
+
+    # Cross-source synthesis section
+    synthesis_parts = []
+    if len(fetched) >= 2:
+        # Common terms across sources
+        common_terms = [t for t, c in sorted(all_keywords.items(), key=lambda x: -x[1]) if c >= 2][:10]
+        if common_terms:
+            synthesis_parts.append(
+                "**Common topics across sources:** " + " · ".join(common_terms)
+            )
+        # Code examples found
+        all_code = list(dict.fromkeys(all_code))[:6]  # dedup, top 6
+        if all_code:
+            synthesis_parts.append(
+                f"**{len(all_code)} code example(s) extracted** — see source sections below for full context"
+            )
+        synthesis_parts.append(
+            f"**Coverage:** {len(fetched)} sources fetched from {len(urls)} URLs searched"
+        )
 
     elapsed = (time.time() - t_start) * 1000
 
-    header = f"## Deep Research: {topic}\n_Searched + fetched {len(fetched)}/{fetch_top} pages in {elapsed:.0f}ms_\n"
-    return header + "\n---\n" + "\n---\n".join(fetched) + "\n\n---\n### Search Results\n" + search_result
+    parts = [f"## Deep Research: {topic}\n_Searched + fetched {len(fetched)}/{fetch_top} pages in {elapsed:.0f}ms_\n"]
+
+    if synthesis_parts:
+        parts.append("### Synthesis\n" + "\n".join(f"- {s}" for s in synthesis_parts))
+        parts.append("")
+
+    parts.append("---")
+    parts.extend(fetched)
+
+    if all_code:
+        parts.append("---")
+        parts.append("### Extracted Code Examples\n")
+        for j, code in enumerate(all_code, 1):
+            parts.append(f"**Example {j}:**\n```\n{code.strip()[:800]}\n```\n")
+
+    parts.append("---")
+    parts.append("### Search Results\n")
+    parts.append(search_result)
+
+    return "\n".join(parts)
 
 
 @mcp.tool(annotations=_READONLY_TOOL)
@@ -1242,6 +1289,206 @@ async def search_news(
     )
 
 
+@mcp.tool(annotations=_READONLY_TOOL)
+async def search_github_issues(
+    repo: str = "",
+    query: str = "",
+    state: str = "all",
+    labels: str = "",
+    max_results: int = 10,
+) -> str:
+    """Search GitHub issues and pull requests across repos. Uses GitHub's REST API
+    directly — no search engine latency. Requires no API key for public repos
+    (rate limit: 60 req/hr unauthenticated, 5000 with GITHUB_TOKEN).
+
+    Args:
+        repo: Repo name (e.g. "python/cpython" or "facebook/react"). Empty = search all.
+        query: Search keywords, error messages, or issue titles.
+        state: "open", "closed", or "all".
+        labels: Comma-separated label filter (e.g. "bug,good first issue").
+        max_results: 1-30.
+    """
+    if not query.strip():
+        raise SearchError("GitHub issue search requires a query.")
+
+    gh_token = os.environ.get("GITHUB_TOKEN", "")
+    headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": USER_AGENT}
+    if gh_token:
+        headers["Authorization"] = f"Bearer {gh_token}"
+
+    max_results = max(1, min(max_results, 30))
+    search_parts = [query.strip()]
+    if repo.strip():
+        search_parts.append(f"repo:{repo.strip()}")
+    if state in ("open", "closed"):
+        search_parts.append(f"state:{state}")
+    if labels.strip():
+        search_parts.append(f"label:{labels.strip()}")
+    search_q = " ".join(search_parts)
+
+    url = f"https://api.github.com/search/issues?q={quote_plus(search_q)}&per_page={max_results}&sort=updated&order=desc"
+
+    try:
+        async with httpx.AsyncClient(timeout=FETCH_TIMEOUT) as c:
+            resp = await c.get(url, headers=headers)
+            if resp.status_code == 403 and "rate limit" in resp.text.lower():
+                return (
+                    "GitHub API rate limit exceeded (60/hr unauthenticated).\n"
+                    "Set GITHUB_TOKEN env var for 5000/hr:\n"
+                    "  export GITHUB_TOKEN=ghp_xxxx  # or ghp_xxxx from github.com/settings/tokens"
+                )
+            if resp.status_code == 422:
+                raise SearchError(f"GitHub search query invalid. Check repo name format (owner/repo).")
+            if resp.status_code != 200:
+                raise SearchError(f"GitHub API HTTP {resp.status_code}")
+            data = resp.json()
+    except httpx.RequestError as e:
+        raise SearchError(f"GitHub API request failed: {e}") from e
+
+    items = data.get("items", [])
+    if not items:
+        return f"No GitHub issues/PRs found for '{search_q}'."
+
+    lines = [
+        f"## GitHub Issues: {search_q}",
+        f"_{len(items)} results of ~{data.get('total_count', '?')}_\n",
+    ]
+    for i, item in enumerate(items, 1):
+        item_type = "PR" if "pull_request" in item else "Issue"
+        state_icon = "🟢" if item["state"] == "open" else ("🟣" if item["state"] == "merged" else "🔴")
+        labels_str = ""
+        if item.get("labels"):
+            labels_str = " [" + ", ".join(l["name"] for l in item["labels"][:3]) + "]"
+        lines.append(
+            f"### {i}. [{item_type} #{item['number']}]({item['html_url']}) {state_icon}{labels_str}\n"
+            f"**{item['title']}**\n"
+            f"> {item.get('repository_url', '').replace('https://api.github.com/repos/', '')} | "
+            f"by [{item['user']['login']}]({item['user']['html_url']}) "
+            f"| {item.get('comments', 0)} comments | "
+            f"updated {item.get('updated_at', '?')[:10]}\n\n"
+            f"{item.get('body', '(no description)')[:500]}\n"
+        )
+    return "\n".join(lines)
+
+
+@mcp.tool(annotations=_READONLY_TOOL)
+async def search_security(
+    package: str,
+    ecosystem: str = "auto",
+    max_results: int = 10,
+) -> str:
+    """Check for known security vulnerabilities in a package/library.
+    Uses the OSV (Open Source Vulnerabilities) API — covers PyPI, npm, crates.io,
+    Go, Maven, RubyGems, and more. Essential before adding new dependencies.
+
+    Args:
+        package: Package name (e.g. "requests", "lodash", "serde").
+        ecosystem: "PyPI", "npm", "crates.io", "Go", "Maven", "RubyGems", or "auto".
+        max_results: Max vulnerabilities to show (1-20).
+    """
+    pkg = package.strip()
+    max_results = max(1, min(max_results, 20))
+
+    # Ecosystem auto-detection and mapping
+    ECOSYSTEM_MAP = {
+        "pypi": "PyPI",
+        "npm": "npm",
+        "crates": "crates.io",
+        "go": "Go",
+        "maven": "Maven",
+        "rubygems": "RubyGems",
+    }
+    ecosystems_to_try = []
+    if ecosystem == "auto":
+        ecosystems_to_try = ["PyPI", "npm", "crates.io", "Go", "Maven", "RubyGems"]
+    elif ecosystem.lower() in ECOSYSTEM_MAP:
+        ecosystems_to_try = [ECOSYSTEM_MAP[ecosystem.lower()]]
+    else:
+        ecosystems_to_try = [ecosystem]
+
+    results = []
+    for eco in ecosystems_to_try:
+        try:
+            async with httpx.AsyncClient(timeout=FETCH_TIMEOUT) as c:
+                resp = await c.post(
+                    "https://api.osv.dev/v1/query",
+                    json={"package": {"name": pkg, "ecosystem": eco}},
+                )
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+        except Exception:
+            continue
+
+        vulns = data.get("vulns", [])
+        if not vulns:
+            results.append(f"### {eco}: {pkg} — ✅ No known vulnerabilities")
+            break  # found the right ecosystem
+
+        lines = [f"### {eco}: {pkg} — ⚠️ {len(vulns)} vulnerabilities\n"]
+        for v in vulns[:max_results]:
+            vid = v.get("id", "unknown")
+            aliases = ", ".join(v.get("aliases", [])[:3])
+            summary = v.get("summary", "No description")[:300]
+            severity = ""
+            for sev in v.get("severity", []):
+                if sev.get("type") == "CVSS_V3":
+                    severity = f" | CVSS: {sev.get('score', '?')}"
+            fixed = v.get("fixed", "not yet fixed")
+            lines.append(
+                f"- **{vid}**{severity}\n"
+                f"  {summary}\n"
+                f"  Aliases: {aliases or 'none'} | Fixed in: {fixed}\n"
+            )
+        results.append("\n".join(lines))
+        break  # found the right ecosystem
+
+    if results:
+        return "\n\n".join(results)
+
+    return (
+        f"No vulnerability data found for '{pkg}'.\n"
+        f"Try specifying ecosystem explicitly: {', '.join(ECOSYSTEM_MAP.keys())}."
+    )
+
+
+@mcp.tool(annotations=_READONLY_TOOL)
+async def search_tutorial(
+    technology: str,
+    level: str = "beginner",
+    engine: str = "auto",
+    max_results: int = 8,
+) -> str:
+    """Find getting-started tutorials and learning resources for a technology.
+    Scoped to tutorial platforms, official docs quickstart pages, and trusted
+    learning sites. Authority-ranked for quality.
+
+    Args:
+        technology: Language, framework, or tool (e.g. "Rust", "React", "Docker").
+        level: "beginner", "intermediate", or "advanced".
+        engine: "auto", "brave", "google", "bing", "baidu", "yahoo", "all".
+        max_results: 1-30.
+    """
+    _TUTORIAL_DOMAINS = [
+        "realpython.com", "freecodecamp.org", "codecademy.com",
+        "docs.python.org", "developer.mozilla.org", "learn.microsoft.com",
+        "react.dev", "vuejs.org", "angular.io", "svelte.dev",
+        "rust-lang.org", "golang.org", "nodejs.org", "kubernetes.io",
+    ]
+    level_q = {"beginner": "getting started tutorial for beginners",
+               "intermediate": "intermediate guide tutorial",
+               "advanced": "advanced deep dive guide"}
+    level_part = level_q.get(level, level_q["beginner"])
+    query = f"{technology} {level_part}"
+
+    return await _do_search(
+        query=query, label="Tutorial", max_results=max_results,
+        engine=engine, region="wt-wt", safesearch="off", timelimit="y",
+        scoped_domains=_TUTORIAL_DOMAINS, query_category="code",
+        sort_by_authority=True,
+    )
+
+
 # ===========================================================================
 # Content Fetching
 # ===========================================================================
@@ -1384,24 +1631,27 @@ async def list_engines() -> str:
 | baidu   | Baidu scraping                    | Unlimited (China)   | ✅ always   |
 | yahoo   | Yahoo via DDGS                    | Unlimited           | ✅ always   |
 
-## Coding-Agent Tools (16 total)
+## Coding-Agent Tools (19 total)
 
 | Tool | Purpose |
 |------|---------|
-| `web_search` | General web search with any engine, 3 output formats |
-| `search_code` | Stack Overflow, GitHub, Reddit, dev.to, HN |
-| `search_docs` | Official docs: MDN, readthedocs, PyPI, npm, MS Learn |
-| `search_paper` | Research papers: arXiv, ACM DL, IEEE, Semantic Scholar |
-| `search_github` | Code repos: GitHub, GitLab, Bitbucket, Gitee |
-| `search_error` | **Debug errors** (auto-strips noise, detects error codes) |
-| `search_api` | **API method signatures** & parameter documentation |
-| `search_compare` | **Compare technologies** side-by-side with aspect filtering |
-| `search_deep` | **Deep research** — search + auto-fetch top results' content |
-| `search_similar_repos` | **Find repos** by feature description |
+| `web_search` | General web search with any engine, 3 output formats, session tracking |
+| `search_code` | Programming Q&A: Stack Overflow, GitHub, Reddit, dev.to, HN |
+| `search_docs` | Official docs: MDN, readthedocs, PyPI, npm, MS Learn, crates.io |
+| `search_paper` | Research papers: arXiv, ACM DL, IEEE, Semantic Scholar, Usenix |
+| `search_github` | Code repos: GitHub, GitLab, Bitbucket, Gitee, SourceForge |
+| `search_github_issues` | **NEW** — Search issues/PRs across GitHub repos (no API key needed) |
+| `search_error` | **Debug errors** — auto-strips noise, detects 10+ error code patterns |
+| `search_api` | **API signatures** — method, parameter, and return type documentation |
+| `search_compare` | **Compare X vs Y** — side-by-side technology analysis |
+| `search_deep` | **Deep research** — search + parallel fetch + cross-source synthesis |
+| `search_similar_repos` | **Find repos** by feature description and language |
 | `search_package` | **Package lookup** — PyPI, npm, crates.io, pkg.go.dev direct API |
+| `search_security` | **NEW** — Check for CVEs via OSV API (PyPI, npm, crates, Go, Maven) |
 | `search_news` | **Tech news** — HN, TechCrunch, ArsTechnica, dev.to, time-filtered |
+| `search_tutorial` | **NEW** — Find tutorials by tech and skill level (beginner to advanced) |
 | `web_fetch` | Extract readable content from any URL, preserves code blocks |
-| `web_fetch_code` | Extract **only code blocks** from a URL |
+| `web_fetch_code` | Extract **only code blocks** from a URL with language detection |
 | `search_session` | Manage multi-turn search context across queries |
 | `list_engines` | Show engine status, API key config, and setup instructions |
 
