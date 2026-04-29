@@ -6,7 +6,7 @@
 [![Docker](https://img.shields.io/badge/Docker-supported-blue)](https://docs.docker.com/)
 
 **The ultimate open-source, locally-deployed web search MCP server for coding agents.**
-19 specialized tools, 6 search engines, Docker support, CVE checks, parallel execution.
+20 specialized tools, 7 search engines, SearXNG support, Docker, RSS, CVE checks, CI/CD.
 Designed for programmers, researchers, and engineers. No API key required by default.
 
 ---
@@ -58,7 +58,7 @@ With Brave Search (recommended free upgrade):
 
 ---
 
-## Tools Reference (19 total)
+## Tools Reference (20 total)
 
 ### Core Search
 
@@ -83,12 +83,13 @@ With Brave Search (recommended free upgrade):
 | `search_github_issues` | Search issues/PRs across GitHub — filter by repo, state, labels |
 | `search_security` | Check CVEs via OSV API — PyPI, npm, crates, Go, Maven, RubyGems |
 
-### Content & News
+### Content & News (5 tools)
 
 | Tool | Purpose |
 |------|---------|
 | `search_news` | Tech news from HN, TechCrunch, ArsTechnica, dev.to (time-filtered) |
 | `search_tutorial` | Find tutorials by tech and skill level (beginner to advanced) |
+| `search_rss` | Fetch/parse RSS/Atom feeds by URL or topic search |
 | `web_fetch` | Extract readable content from any URL, preserves code blocks |
 | `web_fetch_code` | Extract only code blocks from a URL with language detection |
 
@@ -150,6 +151,7 @@ With Brave Search (recommended free upgrade):
 | `bing` | Bing Web Search API v7 | 1000/mo | `BING_SEARCH_API_KEY` |
 | `baidu` | Baidu.com scraping | Unlimited | None |
 | `yahoo` | Yahoo via DuckDuckGo | Unlimited | None |
+| `searxng` | SearXNG (self-hosted metasearch) | **Unlimited** | `SEARXNG_URL` |
 
 Set `engine="all"` for parallel multi-engine search with auto-deduplication.
 Set `SEARCH_ENGINES=brave,auto` env var for custom fallback chains.

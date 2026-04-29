@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] — 2026-04-29
+
+### Added
+
+- **SearXNG search engine** — 7th engine. Self-hosted, privacy-respecting metasearch.
+  Set `SEARXNG_URL=http://localhost:8080` to use. Aggregates dozens of sources.
+- **`search_rss`** — Fetch and parse RSS/Atom feeds by URL or topic search.
+  Auto-detects RSS 2.0 and Atom formats. Returns title, link, description, date.
+- **GitHub Actions CI/CD** — `.github/workflows/ci.yml` (lint, syntax, tool count on
+  Python 3.10-3.13) and `docker-publish.yml` (ghcr.io on tag push).
+- **Rate limit tracking** — Per-engine rate limit tracking with `_check_rate_limit()`.
+  Warns before hitting limits on Brave, Google, Bing APIs.
+
+### Changed
+
+- Tool count: 19→20 tools
+- Search engines: 6→7 (added SearXNG)
+- `SearchError` now carries optional `recovery` hint for actionable guidance
+
 ## [0.4.0] — 2026-04-29
 
 ### Added

@@ -1,6 +1,32 @@
 # DevLog
 
-## v0.4.0 — 2026-04-29 (current)
+## v0.5.0 — 2026-04-29 (current)
+
+### New Features
+
+- **SearXNG engine** (7th engine) — Self-hosted metasearch via `SEARXNG_URL` env var.
+  Privacy-respecting alternative that aggregates dozens of search sources. JSON API at
+  `{instance}/search?format=json`.
+
+- **`search_rss`** — RSS/Atom feed reader. Accepts direct feed URL or topic search.
+  Auto-detects RSS 2.0 and Atom formats. Parses title, link, description, and date
+  for each entry. Uses BeautifulSoup for robust XML parsing.
+
+- **GitHub Actions CI/CD** — `.github/workflows/ci.yml` runs flake8 lint, syntax check,
+  and tool count verification on Python 3.10–3.13. `docker-publish.yml` builds and
+  pushes Docker images to ghcr.io on tag push.
+
+- **Rate limit tracking** — `_check_rate_limit()` tracks per-engine API call frequency
+  with a 60-second sliding window. Prevents silent failures by warning before hitting
+  Brave/Google/Bing rate limits.
+
+### Changed
+
+- Tool count: 20 (was 19)
+- Search engines: 7 (was 6)
+- `SearchError` now supports `recovery` hint for actionable error guidance
+
+## v0.4.0 — 2026-04-29
 
 ### New Tools (19 total)
 

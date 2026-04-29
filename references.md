@@ -47,33 +47,35 @@ What codingWebSearch has that competitors don't (combined):
 
 | Feature | codingWebSearch | Others |
 |---------|:---:|:---:|
-| Multi-engine (6 engines) | ✅ | ❌ (max 1-2) |
+| Multi-engine (7 engines) | ✅ | ❌ (max 1-2) |
 | Parallel engine execution | ✅ | ❌ |
 | Domain-scoped search (4 categories) | ✅ | ❌ (1 project) |
-| Source authority ranking | ✅ | ❌ |
-| Relevance + freshness scoring | ✅ | ❌ |
-| Direct package registry APIs | ✅ | ❌ |
-| Error code pattern detection | ✅ | ❌ (1 project) |
-| Deep research (search + fetch) | ✅ | ✅ (Tavily) |
+| Source authority + relevance + freshness | ✅ | ❌ |
+| Direct package registry APIs (4 registries) | ✅ | ❌ |
+| Error code pattern detection (10+ patterns) | ✅ | ❌ (1 project) |
+| Deep research + cross-source synthesis | ✅ | ✅ (Tavily) |
+| GitHub issues/PRs search | ✅ | ❌ |
+| CVE/security checking (OSV API) | ✅ | ❌ |
+| RSS/Atom feed support | ✅ | ✅ (TrendRadar) |
+| SearXNG integration | ✅ | ✅ (mcp-searxng) |
 | Session tracking | ✅ | ❌ |
 | 3 output formats | ✅ | ❌ |
-| 16 specialized tools | ✅ | ❌ (max 13) |
+| 20 specialized tools | ✅ | ❌ (max 13) |
 | Resource exposure (domains, authority) | ✅ | ❌ |
 | 5-min result caching | ✅ | ❌ |
 | Auto-retry with backoff | ✅ | ❌ |
 | API key optional (free by default) | ✅ | ✅ (3 projects) |
 | MCP annotations (tools + resources) | ✅ | ❌ |
 | isError protocol compliance | ✅ | ❌ |
-| Tool annotations (readOnlyHint etc.) | ✅ | ❌ |
+| Docker support | ✅ | ✅ (mcp-searxng) |
+| CI/CD (GitHub Actions) | ✅ | ❌ |
+| Rate limit tracking | ✅ | ❌ |
 
 Areas where competitors still lead:
 
 | Feature | codingWebSearch | Leader |
 |---------|:---:|--------|
-| SearXNG integration | ❌ | mcp-searxng |
 | Playwright/anti-bot | ❌ | mcp_web_search |
 | LLM-powered summarization | ❌ | gpt-researcher |
-| Docker packaging | ❌ | mcp-searxng |
 | OAuth authentication | ❌ | tavily-mcp |
 | Batch URL crawling | ❌ | olostep-mcp-server |
-| RSS/feed monitoring | ❌ | TrendRadar |

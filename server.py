@@ -21,9 +21,39 @@ from mcp.types import ToolAnnotations, Annotations as ResourceAnnotations
 mcp = FastMCP("codingWebSearch")
 
 class SearchError(Exception):
-    """Raised when a search operation fails after all retries/fallbacks.
-    FastMCP converts this to an isError=true tool result."""
-    pass
+    """Raised when a search operation fails.
+    FastMCP converts this to an isError=true tool result.
+
+    Subclasses carry a `recovery` hint for actionable guidance."""
+    def __init__(self, message: str, recovery: str = ""):
+        super().__init__(message)
+        self.recovery = recovery
+
+    def __str__(self):
+        msg = super().__str__()
+        if self.recovery:
+            msg += f"\n💡 {self.recovery}"
+        return msg
+
+
+_RATE_LIMIT_TRACKER: dict[str, list[float]] = {}
+
+
+def _check_rate_limit(engine: str, max_per_minute: int = 10) -> str | None:
+    """Track per-engine rate limits. Returns error message if rate limited."""
+    now = time.time()
+    window = 60
+    calls = _RATE_LIMIT_TRACKER.get(engine, [])
+    calls = [t for t in calls if now - t < window]
+    _RATE_LIMIT_TRACKER[engine] = calls
+    if len(calls) >= max_per_minute:
+        wait = int(window - (now - calls[0]))
+        return (
+            f"Rate limit: {engine} engine ({len(calls)}/{max_per_minute} per minute). "
+            f"Wait {wait}s or try engine='auto'."
+        )
+    calls.append(now)
+    return None
 
 
 # Shared annotations — all tools in this server are read-only
@@ -109,6 +139,7 @@ ENV_BING_KEY = "BING_SEARCH_API_KEY"
 ENV_GOOGLE_KEY = "GOOGLE_API_KEY"
 ENV_GOOGLE_CX = "GOOGLE_CSE_ID"
 ENV_BRAVE_KEY = "BRAVE_SEARCH_API_KEY"
+ENV_SEARXNG_URL = "SEARXNG_URL"
 
 # Search session context — enables multi-turn search refinement
 _search_sessions: dict[str, dict] = {}
@@ -573,20 +604,51 @@ async def _search_yahoo(query: str, max_results: int) -> list[dict]:
         r["engine"] = "yahoo"
     return results
 
+
+async def _search_searxng(query: str, max_results: int) -> list[dict]:
+    """Search via a self-hosted SearXNG instance. Privacy-respecting metasearch."""
+    searxng_url = os.environ.get(ENV_SEARXNG_URL, "").rstrip("/")
+    if not searxng_url:
+        raise DDGSException(
+            "SearXNG requires SEARXNG_URL env var. Set it to your instance URL.\n"
+            "Example: export SEARXNG_URL=http://localhost:8080"
+        )
+    url = f"{searxng_url}/search?format=json&q={quote_plus(query)}&categories=general&pageno=1"
+    async with httpx.AsyncClient(timeout=SEARCH_TIMEOUT) as c:
+        resp = await c.get(url, headers={"User-Agent": USER_AGENT})
+        if resp.status_code != 200:
+            raise DDGSException(f"SearXNG HTTP {resp.status_code} — is the instance running?")
+        data = resp.json()
+    results = []
+    for r in (data.get("results") or [])[:max_results]:
+        results.append({
+            "title": r.get("title", ""),
+            "href": r.get("url", ""),
+            "body": (r.get("content", "") or r.get("snippet", ""))[:500],
+            "engine": "searxng",
+            "_authority": _source_authority(r.get("url", "")),
+        })
+    if not results:
+        raise DDGSException("SearXNG returned no results.")
+    return results
+
+
 _ENGINE_INFO = {
-    "auto":   {"source": "DuckDuckGo", "key": None},
-    "brave":  {"source": "Brave Search API", "key": ENV_BRAVE_KEY},
-    "google": {"source": "Google CSE API", "key": f"{ENV_GOOGLE_KEY}+{ENV_GOOGLE_CX}"},
-    "bing":   {"source": "Bing API v7", "key": ENV_BING_KEY},
-    "baidu":  {"source": "Baidu scraping", "key": None},
-    "yahoo":  {"source": "Yahoo via DDGS", "key": None},
+    "auto":    {"source": "DuckDuckGo", "key": None},
+    "brave":   {"source": "Brave Search API", "key": ENV_BRAVE_KEY},
+    "google":  {"source": "Google CSE API", "key": f"{ENV_GOOGLE_KEY}+{ENV_GOOGLE_CX}"},
+    "bing":    {"source": "Bing API v7", "key": ENV_BING_KEY},
+    "baidu":   {"source": "Baidu scraping", "key": None},
+    "yahoo":   {"source": "Yahoo via DDGS", "key": None},
+    "searxng": {"source": "SearXNG (self-hosted)", "key": ENV_SEARXNG_URL},
 }
-_ENGINE_PRIORITY = ["auto", "brave", "google", "bing", "yahoo", "baidu"]
+_ENGINE_PRIORITY = ["auto", "brave", "google", "bing", "yahoo", "baidu", "searxng"]
 
 _NO_KEY_MSGS = {
     "brave": "Engine 'brave' needs BRAVE_SEARCH_API_KEY. Free key: https://brave.com/search/api/",
     "google": "Engine 'google' needs GOOGLE_API_KEY + GOOGLE_CSE_ID.",
     "bing": "Engine 'bing' needs BING_SEARCH_API_KEY. Note: 'auto' already includes Bing.",
+    "searxng": "Engine 'searxng' needs SEARXNG_URL. Set to your instance URL (e.g. http://localhost:8080).",
 }
 
 async def _search_with_engine(query, engine, max_results=10, region="wt-wt",
@@ -603,6 +665,8 @@ async def _search_with_engine(query, engine, max_results=10, region="wt-wt",
         return await _search_baidu(query, max_results)
     if engine == "yahoo":
         return await _search_yahoo(query, max_results)
+    if engine == "searxng":
+        return await _search_searxng(query, max_results)
     raise DDGSException(f"Unknown engine '{engine}'. Options: {', '.join(_ENGINE_INFO.keys())}")
 
 def _resolve_engines(requested: str) -> list[str]:
@@ -691,6 +755,12 @@ async def _do_search(
                     return (eng, [], f"[{eng}] keys not configured, skip")
             elif not os.environ.get(required_key or ""):
                 return (eng, [], f"[{eng}] key not set, skip")
+
+        # Rate limit check for public APIs
+        if eng in ("brave", "google", "bing"):
+            limit_err = _check_rate_limit(eng)
+            if limit_err:
+                return (eng, [], f"[{eng}] {limit_err}")
 
         for attempt in range(MAX_RETRIES + 1):
             try:
@@ -1489,6 +1559,93 @@ async def search_tutorial(
     )
 
 
+@mcp.tool(annotations=_READONLY_TOOL)
+async def search_rss(
+    feed_url: str = "",
+    topic: str = "",
+    max_results: int = 15,
+) -> str:
+    """Fetch and parse RSS/Atom feeds. Provide a feed URL to read a specific feed,
+    or a topic to find relevant feeds via web search first, then fetch entries.
+
+    Args:
+        feed_url: Direct RSS/Atom feed URL (e.g. "https://hnrss.org/frontpage").
+        topic: Topic to find feeds for if no feed_url given (e.g. "Rust releases").
+        max_results: Max entries to return (1-50).
+    """
+    max_results = max(1, min(max_results, 50))
+
+    # If no feed URL, search for feeds matching the topic
+    if not feed_url.strip():
+        if not topic.strip():
+            raise SearchError("Provide either a feed_url or a topic to search for feeds.")
+        # Search for RSS feeds
+        search_result = await _do_search(
+            query=f"{topic} RSS feed", label="Feed Search", max_results=3,
+            engine="auto", region="wt-wt", safesearch="off", timelimit=None,
+            output_format="links",
+        )
+        urls = re.findall(r'https?://[^\s\n]+', search_result)
+        if not urls:
+            return f"No RSS feeds found for '{topic}'."
+        feed_url = urls[0]
+
+    # Fetch and parse the feed
+    html, err = await _fetch(feed_url.strip(), FETCH_TIMEOUT)
+    if err:
+        raise SearchError(f"Failed to fetch feed: {err}")
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    # RSS 2.0
+    items = soup.find_all("item")
+    # Atom
+    if not items:
+        items = soup.find_all("entry")
+
+    if not items:
+        raise SearchError("No RSS/Atom entries found in the feed.")
+
+    # Feed title
+    feed_title = ""
+    title_tag = soup.find("title")
+    if title_tag:
+        feed_title = title_tag.get_text(strip=True)
+
+    lines = [f"## RSS: {feed_title or feed_url.strip()}", f"> {feed_url.strip()}\n"]
+    for i, item in enumerate(items[:max_results], 1):
+        title = ""
+        link = ""
+        desc = ""
+        date = ""
+
+        title_el = item.find("title")
+        if title_el:
+            title = title_el.get_text(strip=True)
+
+        link_el = item.find("link")
+        if link_el:
+            link = link_el.get("href") or link_el.get_text(strip=True)
+
+        desc_el = item.find("description") or item.find("summary") or item.find("content")
+        if desc_el:
+            desc = BeautifulSoup(desc_el.get_text(strip=True)[:300], "html.parser").get_text()
+
+        for dtag in ("published", "updated", "pubDate", "dc:date"):
+            date_el = item.find(dtag)
+            if date_el:
+                date = date_el.get_text(strip=True)[:25]
+                break
+
+        lines.append(f"### {i}. [{title}]({link})\n" if link else f"### {i}. {title}\n")
+        if date:
+            lines.append(f"_{date}_\n")
+        if desc:
+            lines.append(f"{desc}\n")
+
+    return "\n".join(lines)
+
+
 # ===========================================================================
 # Content Fetching
 # ===========================================================================
@@ -1618,20 +1775,22 @@ async def list_engines() -> str:
     brave_status = "✅ configured" if os.environ.get(ENV_BRAVE_KEY) else "❌ not set"
     google_status = "✅ configured" if (os.environ.get(ENV_GOOGLE_KEY) and os.environ.get(ENV_GOOGLE_CX)) else "❌ not set"
     bing_status = "✅ configured" if os.environ.get(ENV_BING_KEY) else "❌ not set"
+    searxng_status = "✅ configured" if os.environ.get(ENV_SEARXNG_URL) else "❌ not set"
 
     return f"""
 ## Available Search Engines
 
-| Engine  | Backend                           | Free Tier           | Status      |
-|---------|-----------------------------------|---------------------|-------------|
-| auto    | DuckDuckGo (Bing+Yahoo+Brave)     | **Unlimited, free** | ✅ always   |
-| brave   | Brave Search (independent index)  | 2000/mo             | {brave_status} |
-| google  | Google Custom Search              | 100/day             | {google_status} |
-| bing    | Bing Web Search v7                | 1000/mo             | {bing_status} |
-| baidu   | Baidu scraping                    | Unlimited (China)   | ✅ always   |
-| yahoo   | Yahoo via DDGS                    | Unlimited           | ✅ always   |
+| Engine   | Backend                           | Free Tier           | Status      |
+|----------|-----------------------------------|---------------------|-------------|
+| auto     | DuckDuckGo (Bing+Yahoo+Brave)     | **Unlimited, free** | ✅ always   |
+| brave    | Brave Search (independent index)  | 2000/mo             | {brave_status} |
+| google   | Google Custom Search              | 100/day             | {google_status} |
+| bing     | Bing Web Search v7                | 1000/mo             | {bing_status} |
+| baidu    | Baidu scraping                    | Unlimited (China)   | ✅ always   |
+| yahoo    | Yahoo via DDGS                    | Unlimited           | ✅ always   |
+| searxng  | SearXNG (self-hosted metasearch)  | **Unlimited**       | {searxng_status} |
 
-## Coding-Agent Tools (19 total)
+## Coding-Agent Tools (20 total)
 
 | Tool | Purpose |
 |------|---------|
@@ -1650,6 +1809,7 @@ async def list_engines() -> str:
 | `search_security` | **NEW** — Check for CVEs via OSV API (PyPI, npm, crates, Go, Maven) |
 | `search_news` | **Tech news** — HN, TechCrunch, ArsTechnica, dev.to, time-filtered |
 | `search_tutorial` | **NEW** — Find tutorials by tech and skill level (beginner to advanced) |
+| `search_rss` | **NEW** — Fetch and parse RSS/Atom feeds by URL or topic search |
 | `web_fetch` | Extract readable content from any URL, preserves code blocks |
 | `web_fetch_code` | Extract **only code blocks** from a URL with language detection |
 | `search_session` | Manage multi-turn search context across queries |
@@ -1667,6 +1827,9 @@ export GOOGLE_CSE_ID=your_cse_id
 
 # Bing
 export BING_SEARCH_API_KEY=your_key
+
+# SearXNG (self-hosted, privacy-respecting)
+export SEARXNG_URL=http://localhost:8080
 
 # Fallback chain
 export SEARCH_ENGINES=brave,auto

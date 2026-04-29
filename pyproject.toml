@@ -1,7 +1,7 @@
 [project]
 name = "codingWebSearch"
-version = "0.4.0"
-description = "The ultimate open-source MCP web search server — 19 tools, 6 engines, Docker support, CVE checks, GitHub issues, deep research with cross-source synthesis"
+version = "0.5.0"
+description = "Ultimate open-source MCP web search — 20 tools, 7 engines, SearXNG, RSS, CVE checks, Docker, CI/CD, deep research synthesis"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
