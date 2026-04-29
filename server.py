@@ -107,12 +107,6 @@ _DOCS_DOMAINS = [
     "postgresql.org/docs", "mysql.com/docs", "mongodb.com/docs",
 ]
 
-_ADVISORY_DOMAINS = [
-    "cve.mitre.org", "nvd.nist.gov", "osv.dev",
-    "github.com/advisories", "snyk.io/advisories",
-    "rustsec.org", "safetycli.com",
-]
-
 _PAPER_DOMAINS = [
     "arxiv.org", "dl.acm.org", "scholar.google.com",
     "semanticscholar.org", "paperswithcode.com", "openreview.net",
@@ -143,12 +137,11 @@ _AUTHORITY_SCORES: dict[str, float] = {
     "semanticscholar.org": 0.8, "paperswithcode.com": 0.8,
     # Package registries
     "pypi.org": 0.8, "npmjs.com": 0.8, "crates.io": 0.8,
-    # Community
+    # Community & News
     "dev.to": 0.6, "medium.com": 0.55, "reddit.com": 0.5,
-    # News
-    "news.ycombinator.com": 0.7, "dev.to": 0.6, "medium.com": 0.55,
-    # Additional docs
-    "doc.rust-lang.org": 1.0, "react.dev": 1.0, "vuejs.org": 1.0,
+    "news.ycombinator.com": 0.7,
+    # Framework & additional docs
+    "react.dev": 1.0, "vuejs.org": 1.0,
     "angular.io": 1.0, "docs.djangoproject.com": 1.0, "golang.org": 0.95,
     # Cloud providers
     "docs.aws.amazon.com": 0.95, "cloud.google.com": 0.95,
@@ -251,7 +244,8 @@ def _source_authority(url: str) -> float:
         host = urlparse(url).netloc.lower()
         host = re.sub(r'^www\.', '', host)
         for domain, score in _SORTED_AUTHORITY:
-            if domain in host:
+            # Dot-aware matching: domain must match end of host with a dot boundary
+            if host == domain or host.endswith("." + domain):
                 return score
     except Exception:
         pass
@@ -1619,55 +1613,50 @@ async def search_rss(
     if err:
         raise SearchError(f"Failed to fetch feed: {err}")
 
-    soup = BeautifulSoup(html, "html.parser")
+    def _parse_feed():
+        soup = BeautifulSoup(html, "html.parser")
+        items = soup.find_all("item")
+        if not items:
+            items = soup.find_all("entry")
+        if not items:
+            return None, "No RSS/Atom entries found in the feed."
 
-    # RSS 2.0
-    items = soup.find_all("item")
-    # Atom
-    if not items:
-        items = soup.find_all("entry")
+        feed_title = ""
+        title_tag = soup.find("title")
+        if title_tag:
+            feed_title = title_tag.get_text(strip=True)
 
-    if not items:
-        raise SearchError("No RSS/Atom entries found in the feed.")
+        lines = [f"## RSS: {feed_title or feed_url.strip()}", f"> {feed_url.strip()}\n"]
+        for i, item in enumerate(items[:max_results], 1):
+            title = ""
+            link = ""
+            desc = ""
+            date = ""
+            title_el = item.find("title")
+            if title_el:
+                title = title_el.get_text(strip=True)
+            link_el = item.find("link")
+            if link_el:
+                link = link_el.get("href") or link_el.get_text(strip=True)
+            desc_el = item.find("description") or item.find("summary") or item.find("content")
+            if desc_el:
+                desc = BeautifulSoup(desc_el.get_text(strip=True)[:300], "html.parser").get_text()
+            for dtag in ("published", "updated", "pubDate", "dc:date"):
+                date_el = item.find(dtag)
+                if date_el:
+                    date = date_el.get_text(strip=True)[:25]
+                    break
+            lines.append(f"### {i}. [{title}]({link})\n" if link else f"### {i}. {title}\n")
+            if date:
+                lines.append(f"_{date}_\n")
+            if desc:
+                lines.append(f"{desc}\n")
+        return "\n".join(lines), None
 
-    # Feed title
-    feed_title = ""
-    title_tag = soup.find("title")
-    if title_tag:
-        feed_title = title_tag.get_text(strip=True)
-
-    lines = [f"## RSS: {feed_title or feed_url.strip()}", f"> {feed_url.strip()}\n"]
-    for i, item in enumerate(items[:max_results], 1):
-        title = ""
-        link = ""
-        desc = ""
-        date = ""
-
-        title_el = item.find("title")
-        if title_el:
-            title = title_el.get_text(strip=True)
-
-        link_el = item.find("link")
-        if link_el:
-            link = link_el.get("href") or link_el.get_text(strip=True)
-
-        desc_el = item.find("description") or item.find("summary") or item.find("content")
-        if desc_el:
-            desc = BeautifulSoup(desc_el.get_text(strip=True)[:300], "html.parser").get_text()
-
-        for dtag in ("published", "updated", "pubDate", "dc:date"):
-            date_el = item.find(dtag)
-            if date_el:
-                date = date_el.get_text(strip=True)[:25]
-                break
-
-        lines.append(f"### {i}. [{title}]({link})\n" if link else f"### {i}. {title}\n")
-        if date:
-            lines.append(f"_{date}_\n")
-        if desc:
-            lines.append(f"{desc}\n")
-
-    return "\n".join(lines)
+    result, err = await asyncio.to_thread(_parse_feed)
+    if err:
+        raise SearchError(err)
+    return result
 
 
 @mcp.tool(annotations=_READONLY_TOOL)
@@ -1697,20 +1686,25 @@ async def search_crawl(
         html, err = await _fetch(base_url.strip(), FETCH_TIMEOUT)
         if err:
             raise SearchError(f"Failed to fetch base URL: {err}")
-        soup = BeautifulSoup(html, "html.parser")
-        base_domain = urlparse(base_url.strip()).netloc
-        seen_links = {base_url.strip()}
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            if href.startswith("/"):
-                parsed_base = urlparse(base_url.strip())
-                href = f"{parsed_base.scheme}://{parsed_base.netloc}{href}"
-            elif not href.startswith("http"):
-                continue
-            if urlparse(href).netloc == base_domain and href not in seen_links:
-                seen_links.add(href)
-                if len(target_urls) < max_pages - 1:
-                    target_urls.append(href)
+
+        def _extract_links():
+            soup = BeautifulSoup(html, "html.parser")
+            base_domain = urlparse(base_url.strip()).netloc
+            links = []
+            seen_links = {base_url.strip()}
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                if href.startswith("/"):
+                    parsed_base = urlparse(base_url.strip())
+                    href = f"{parsed_base.scheme}://{parsed_base.netloc}{href}"
+                elif not href.startswith("http"):
+                    continue
+                if urlparse(href).netloc == base_domain and href not in seen_links:
+                    seen_links.add(href)
+                    links.append(href)
+            return links
+
+        target_urls = await asyncio.to_thread(_extract_links)
         target_urls.insert(0, base_url.strip())
     else:
         raise SearchError("Provide either 'urls' (comma-separated list) or 'base_url' (site to crawl).")
