@@ -1,7 +1,7 @@
 [project]
 name = "codingWebSearch"
-version = "0.2.0"
-description = "MCP server for coding agents — intelligent web search, documentation lookup, error debugging, and deep research with 14 specialized tools"
+version = "0.3.0"
+description = "Ultimate open-source MCP web search server for coding agents — 16 tools, 6 search engines, parallel execution, direct package APIs, tech news, error debugging"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"

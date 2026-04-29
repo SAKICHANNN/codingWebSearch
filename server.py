@@ -236,10 +236,29 @@ def _source_freshness(body: str, title: str = "") -> float:
     return min(score, 0.2)
 
 
-def _sort_by_authority(results: list[dict]) -> list[dict]:
-    """Sort results: authority DESC, then freshness boost, then original position."""
+def _relevance_score(result: dict, query: str) -> float:
+    """Score how relevant a result is to the query. Returns a boost factor (0-0.3).
+    Measures keyword overlap between query terms and result title + snippet."""
+    if not query:
+        return 0.0
+    query_terms = set(re.findall(r'[a-zA-Z0-9]+', query.lower()))
+    if not query_terms:
+        return 0.0
+    result_text = (result.get("title", "") + " " + result.get("body", "")).lower()
+    result_terms = set(re.findall(r'[a-zA-Z0-9]+', result_text))
+    overlap = len(query_terms & result_terms) / len(query_terms)
+    return round(overlap * 0.3, 2)
+
+
+def _sort_by_authority(results: list[dict], query: str = "") -> list[dict]:
+    """Sort results: authority + freshness + relevance, then original position."""
     scored = [
-        (r, _source_authority(r.get("href", "")) + _source_freshness(r.get("body", ""), r.get("title", "")))
+        (
+            r,
+            _source_authority(r.get("href", ""))
+            + _source_freshness(r.get("body", ""), r.get("title", ""))
+            + _relevance_score(r, query),
+        )
         for r in results
     ]
     scored.sort(key=lambda x: -x[1])
@@ -305,7 +324,7 @@ def _format_results(
         return f"No results found for '{query}'."
 
     if show_authority:
-        results = _sort_by_authority(results)
+        results = _sort_by_authority(results, query)
 
     header = f"## {label}: {query}"
     meta = f"_{len(results)} results"
@@ -656,56 +675,65 @@ async def _do_search(
             elif not os.environ.get(required_key):
                 return _NO_KEY_MSGS.get(eng, f"'{eng}' needs an API key. Use 'auto' instead. (Engine '{eng}' falls back to auto)")
 
-    # Try engines (with overall time budget for multi-engine mode)
+    # Try engines in parallel (with overall time budget)
     last_errors = []
     all_results = []
     seen = []
+    tasks = []
 
-    for eng in engines_to_try:
-        # Stop trying more engines if overall budget exhausted and we have some results
-        elapsed_since_start = time.time() - t_start
-        if elapsed_since_start > SEARCH_OVERALL_TIMEOUT and all_results:
-            break
+    async def _try_one_engine(eng: str) -> tuple[str, list[dict], str | None]:
+        """Search one engine with retries. Returns (engine_name, results, error)."""
         info = _ENGINE_INFO.get(eng, {})
         required_key = info.get("key")
         if required_key:
             if isinstance(required_key, str) and "+" in required_key:
                 if not all(os.environ.get(k) for k in required_key.split("+")):
-                    last_errors.append(f"[{eng}] keys not configured, skip")
-                    continue
+                    return (eng, [], f"[{eng}] keys not configured, skip")
             elif not os.environ.get(required_key or ""):
-                last_errors.append(f"[{eng}] key not set, skip")
-                continue
+                return (eng, [], f"[{eng}] key not set, skip")
 
         for attempt in range(MAX_RETRIES + 1):
             try:
                 results = await _search_with_engine(
                     search_query, eng, max_results, region, safesearch, timelimit
                 )
-                break
+                return (eng, results, None)
             except RatelimitException:
                 if attempt < MAX_RETRIES:
                     await asyncio.sleep(_retry_sleep(attempt) + 1)
                     continue
-                last_errors.append(f"[{eng}] rate limited")
-                results = []
-                break
+                return (eng, [], f"[{eng}] rate limited")
             except TimeoutException:
                 if attempt < MAX_RETRIES:
                     await asyncio.sleep(_retry_sleep(attempt))
                     continue
-                last_errors.append(f"[{eng}] timeout")
-                results = []
-                break
+                return (eng, [], f"[{eng}] timeout")
             except DDGSException as exc:
-                last_errors.append(f"[{eng}] {exc}")
-                results = []
-                break
+                return (eng, [], f"[{eng}] {exc}")
             except Exception as exc:
-                last_errors.append(f"[{eng}] {exc}")
-                results = []
-                break
+                return (eng, [], f"[{eng}] {exc}")
+        return (eng, [], f"[{eng}] max retries exceeded")
 
+    # Gather valid engine search tasks
+    for eng in engines_to_try:
+        tasks.append(_try_one_engine(eng))
+
+    # Run all engines concurrently with overall timeout
+    done, pending = await asyncio.wait(
+        tasks,
+        timeout=SEARCH_OVERALL_TIMEOUT,
+        return_when=asyncio.ALL_COMPLETED,
+    )
+    # Cancel any tasks that didn't finish in time
+    for p in pending:
+        p.cancel()
+
+    # Collect and deduplicate results
+    for task in done:
+        eng, results, error = task.result()
+        if error:
+            last_errors.append(error)
+            continue
         for r in results:
             if not _is_duplicate(r, seen):
                 seen.append(r)
@@ -891,6 +919,25 @@ async def search_error(
     if language:
         query = f"{language} {query}"
 
+    # Detect known error code patterns to improve search precision
+    error_hints = []
+    # MongoDB/Node.js error codes: E11000, ERR_MODULE_NOT_FOUND, etc.
+    for pattern, hint in [
+        (r'\bE\d{4,6}\b', 'MongoDB'), (r'\bERR_\w+\b', 'Node.js'),
+        (r'\b0x[0-9a-fA-F]{8,16}\b', 'Windows'), (r'\bPANIC\b', 'Rust/Go'),
+        (r'\b(?:segfault|SIGSEGV|SIGABRT)\b', 'C/C++'),
+        (r'\b(?:ORA-\d{4,5}|SQL\d{4})\b', 'Oracle/SQL'),
+        (r'\b(?:TypeError|ReferenceError|SyntaxError|RangeError)\b', 'JavaScript'),
+        (r'\b(?:ImportError|ModuleNotFoundError|AttributeError|KeyError|ValueError)\b', 'Python'),
+        (r'\b(?:NullPointerException|ClassCastException|IllegalArgument)\b', 'Java'),
+        (r'\b(?:panic|defer|goroutine)\b', 'Go'),
+        (r'\bHTTP\s*(?:4\d{2}|5\d{2})\b', 'HTTP status'),
+    ]:
+        if re.search(pattern, query):
+            error_hints.append(hint)
+    if error_hints:
+        query = f"{query} {' '.join(dict.fromkeys(error_hints))}"
+
     return await _do_search(
         query=query, label="Error Resolution", max_results=max_results,
         engine=engine, region="wt-wt", safesearch="off", timelimit=None,
@@ -1074,6 +1121,127 @@ async def search_similar_repos(
     )
 
 
+@mcp.tool(annotations=_READONLY_TOOL)
+async def search_package(
+    package: str,
+    registry: str = "auto",
+    engine: str = "auto",
+    max_results: int = 5,
+) -> str:
+    """Look up package/library info directly from registries (PyPI, npm, crates.io, pkg.go.dev).
+    Uses direct registry APIs — much faster than web search for version/license/dependency info.
+
+    Args:
+        package: Package name (e.g. "requests", "react", "serde", "gin").
+        registry: "pypi", "npm", "crates", "go", or "auto" (auto-detect).
+        engine: Fallback web search engine if direct API fails.
+        max_results: Results if falling back to web search (1-10).
+    """
+    pkg = package.strip().lower()
+    registries_to_try = []
+
+    if registry == "auto":
+        registries_to_try = ["pypi", "npm", "crates", "go"]
+    elif registry in ("pypi", "npm", "crates", "go"):
+        registries_to_try = [registry]
+    else:
+        return f"Unknown registry '{registry}'. Use: pypi, npm, crates, go, or auto."
+
+    REGISTRY_URLS = {
+        "pypi": f"https://pypi.org/pypi/{pkg}/json",
+        "npm": f"https://registry.npmjs.org/{pkg}/latest",
+        "crates": f"https://crates.io/api/v1/crates/{pkg}",
+        "go": f"https://api.pkg.go.dev/packages/{pkg}",
+    }
+
+    results = []
+    for reg in registries_to_try:
+        url = REGISTRY_URLS[reg]
+        try:
+            async with httpx.AsyncClient(timeout=FETCH_TIMEOUT) as c:
+                resp = await c.get(url, headers={"User-Agent": USER_AGENT})
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+
+            if reg == "pypi":
+                info = data.get("info", {})
+                results.append(
+                    f"### PyPI: {info.get('name', pkg)} v{info.get('version', '?')}\n"
+                    f"- **License**: {info.get('license', 'N/A')}\n"
+                    f"- **Summary**: {info.get('summary', 'N/A')[:300]}\n"
+                    f"- **URL**: {info.get('project_url', f'https://pypi.org/project/{pkg}/')}\n"
+                    f"- **Requires Python**: {info.get('requires_python', 'N/A')}\n"
+                )
+            elif reg == "npm":
+                results.append(
+                    f"### npm: {data.get('name', pkg)} v{data.get('version', '?')}\n"
+                    f"- **License**: {data.get('license', 'N/A')}\n"
+                    f"- **Description**: {str(data.get('description', 'N/A'))[:300]}\n"
+                    f"- **URL**: https://www.npmjs.com/package/{pkg}\n"
+                )
+            elif reg == "crates":
+                crate = data.get("crate", data)
+                results.append(
+                    f"### crates.io: {crate.get('name', pkg)} v{crate.get('max_stable_version', crate.get('newest_version', '?'))}\n"
+                    f"- **License**: {crate.get('license', 'N/A')}\n"
+                    f"- **Description**: {crate.get('description', 'N/A')[:300]}\n"
+                    f"- **URL**: https://crates.io/crates/{pkg}\n"
+                )
+            elif reg == "go":
+                results.append(
+                    f"### pkg.go.dev: {data.get('name', pkg)} v{data.get('version', '?')}\n"
+                    f"- **URL**: https://pkg.go.dev/{pkg}\n"
+                    f"- **Synopsis**: {data.get('synopsis', 'N/A')[:300]}\n"
+                )
+            break  # stop after first successful registry
+        except Exception:
+            continue
+
+    if results:
+        return "\n\n".join(results)
+
+    # Fallback to web search
+    return await _do_search(
+        query=f"{package} package version license", label="Package Info [web]",
+        max_results=max_results, engine=engine, region="wt-wt",
+        safesearch="off", timelimit=None, query_category="api",
+    )
+
+
+@mcp.tool(annotations=_READONLY_TOOL)
+async def search_news(
+    topic: str = "",
+    engine: str = "auto",
+    max_results: int = 10,
+    period: str = "w",
+) -> str:
+    """Search tech and programming news from Hacker News, TechCrunch, ArsTechnica,
+    The Verge, dev.to, and other tech news sources. Time-filtered for recent content.
+
+    Args:
+        topic: Tech topic, language, framework, or company (e.g. "Rust", "React", "OpenAI").
+               Leave empty for top tech headlines.
+        engine: "auto", "brave", "google", "bing", "baidu", "yahoo", "all".
+        max_results: 1-50.
+        period: Time filter — "d"=day, "w"=week, "m"=month, "y"=year.
+    """
+    _NEWS_DOMAINS = [
+        "news.ycombinator.com", "techcrunch.com", "arstechnica.com",
+        "theverge.com", "dev.to", "theregister.com", "zdnet.com",
+        "thenewstack.io", "infoq.com", "lwn.net",
+    ]
+    query = topic.strip() if topic.strip() else "latest programming technology news"
+    query = f"{query} news"
+
+    return await _do_search(
+        query=query, label="Tech News", max_results=max_results,
+        engine=engine, region="wt-wt", safesearch="off", timelimit=period,
+        scoped_domains=_NEWS_DOMAINS, query_category="code",
+        sort_by_authority=True,
+    )
+
+
 # ===========================================================================
 # Content Fetching
 # ===========================================================================
@@ -1216,22 +1384,26 @@ async def list_engines() -> str:
 | baidu   | Baidu scraping                    | Unlimited (China)   | ✅ always   |
 | yahoo   | Yahoo via DDGS                    | Unlimited           | ✅ always   |
 
-## Coding-Agent Tools (14 total)
+## Coding-Agent Tools (16 total)
 
 | Tool | Purpose |
 |------|---------|
-| `web_search` | General web search with any engine |
+| `web_search` | General web search with any engine, 3 output formats |
 | `search_code` | Stack Overflow, GitHub, Reddit, dev.to, HN |
 | `search_docs` | Official docs: MDN, readthedocs, PyPI, npm, MS Learn |
 | `search_paper` | Research papers: arXiv, ACM DL, IEEE, Semantic Scholar |
 | `search_github` | Code repos: GitHub, GitLab, Bitbucket, Gitee |
-| `search_error` | **NEW** — Debug errors (auto-strips noise) |
-| `search_api` | **NEW** — API method signatures & docs |
-| `search_compare` | **NEW** — Compare technologies side-by-side |
-| `search_deep` | **NEW** — Search + auto-fetch top results |
-| `search_similar_repos` | **NEW** — Find repos by description |
-| `web_fetch` | Extract readable content from any URL |
-| `web_fetch_code` | **NEW** — Extract only code blocks from a URL |
+| `search_error` | **Debug errors** (auto-strips noise, detects error codes) |
+| `search_api` | **API method signatures** & parameter documentation |
+| `search_compare` | **Compare technologies** side-by-side with aspect filtering |
+| `search_deep` | **Deep research** — search + auto-fetch top results' content |
+| `search_similar_repos` | **Find repos** by feature description |
+| `search_package` | **Package lookup** — PyPI, npm, crates.io, pkg.go.dev direct API |
+| `search_news` | **Tech news** — HN, TechCrunch, ArsTechnica, dev.to, time-filtered |
+| `web_fetch` | Extract readable content from any URL, preserves code blocks |
+| `web_fetch_code` | Extract **only code blocks** from a URL |
+| `search_session` | Manage multi-turn search context across queries |
+| `list_engines` | Show engine status, API key config, and setup instructions |
 
 ## Setup
 
