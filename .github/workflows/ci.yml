@@ -36,6 +36,10 @@ jobs:
         run: |
           python -c "import ast; ast.parse(open('server.py', encoding='utf-8').read()); print('Syntax OK')"
 
+      - name: Run regression tests
+        run: |
+          python -m unittest discover -s tests -v
+
       - name: Verify tool count
         run: |
           python -c "

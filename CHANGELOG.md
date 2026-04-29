@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Search core now wraps per-engine coroutines with `asyncio.create_task()` before
+  passing them to `asyncio.wait`, fixing runtime failures on modern Python.
+- Engine selection now treats `engine="ALL"` the same as `engine="all"`.
+- Runtime status and error strings avoid emoji so Windows GBK consoles can print
+  diagnostics without `UnicodeEncodeError`.
+- `web_fetch_code` truncates extracted code content without dropping the response
+  header or leaving unbalanced markdown code fences.
+- `search_package` registry parsing now handles nullable metadata explicitly and
+  only suppresses network/JSON failures during registry fallback.
+
 ## [0.6.0] — 2026-04-29
 
 ### Added

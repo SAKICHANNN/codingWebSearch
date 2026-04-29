@@ -2,6 +2,20 @@
 
 ## v0.6.0 — 2026-04-29 (current)
 
+### Regression Fixes
+
+- Search core compatibility: `_do_search()` now converts each engine coroutine into
+  an explicit task before using `asyncio.wait`, avoiding runtime failures on newer
+  Python versions.
+- Engine resolution: `engine="ALL"` and other case variants now resolve the same as
+  lowercase `all`.
+- Terminal-safe output: runtime diagnostics, security summaries, issue state labels,
+  crawl failures, and recovery hints avoid emoji for Windows console compatibility.
+- Code fetch truncation: `web_fetch_code` keeps its header and balanced markdown code
+  fences when output is truncated.
+- Package registry fallback: nullable metadata is handled directly, while fallback
+  suppression is limited to request and JSON decode failures.
+
 ### New Features
 
 - **`search_crawl`** — Batch URL crawler. Two modes: (1) comma-separated URL list,

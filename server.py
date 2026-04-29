@@ -32,7 +32,7 @@ class SearchError(Exception):
     def __str__(self):
         msg = super().__str__()
         if self.recovery:
-            msg += f"\n💡 {self.recovery}"
+            msg += f"\nHint: {self.recovery}"
         return msg
 
 
@@ -693,9 +693,9 @@ def _resolve_engines(requested: str) -> list[str]:
         engines = [e for e in re.split(r"[,\s]+", env_override.lower()) if e in _ENGINE_INFO]
         if engines:
             return engines
-    if requested == "all":
-        return _ENGINE_PRIORITY.copy()
     requested_lower = requested.lower()
+    if requested_lower == "all":
+        return _ENGINE_PRIORITY.copy()
     if requested_lower in _ENGINE_INFO:
         return [requested_lower]
     if requested:
@@ -804,7 +804,7 @@ async def _do_search(
 
     # Gather valid engine search tasks
     for eng in engines_to_try:
-        tasks.append(_try_one_engine(eng))
+        tasks.append(asyncio.create_task(_try_one_engine(eng)))
 
     # Run all engines concurrently with overall timeout
     done, pending = await asyncio.wait(
@@ -1171,7 +1171,7 @@ async def search_deep(
     all_keywords = {}
     for i, url, title, text, code_blocks, err in fetched_raw:
         if err:
-            fetched.append(f"### [{i}] {url}\n> ⚠ {err}\n")
+            fetched.append(f"### [{i}] {url}\n> Warning: {err}\n")
             continue
         excerpt = text[:2000]
         if len(text) > 2000:
@@ -1301,36 +1301,41 @@ async def search_package(
 
             if reg == "pypi":
                 info = data.get("info", {})
+                summary = info.get("summary") or "N/A"
+                license_text = info.get("license") or "N/A"
                 results.append(
                     f"### PyPI: {info.get('name', pkg)} v{info.get('version', '?')}\n"
-                    f"- **License**: {info.get('license', 'N/A')}\n"
-                    f"- **Summary**: {info.get('summary', 'N/A')[:300]}\n"
+                    f"- **License**: {license_text}\n"
+                    f"- **Summary**: {summary[:300]}\n"
                     f"- **URL**: {info.get('project_url', f'https://pypi.org/project/{pkg}/')}\n"
                     f"- **Requires Python**: {info.get('requires_python', 'N/A')}\n"
                 )
             elif reg == "npm":
+                description = str(data.get("description") or "N/A")
                 results.append(
                     f"### npm: {data.get('name', pkg)} v{data.get('version', '?')}\n"
-                    f"- **License**: {data.get('license', 'N/A')}\n"
-                    f"- **Description**: {str(data.get('description', 'N/A'))[:300]}\n"
+                    f"- **License**: {data.get('license') or 'N/A'}\n"
+                    f"- **Description**: {description[:300]}\n"
                     f"- **URL**: https://www.npmjs.com/package/{pkg}\n"
                 )
             elif reg == "crates":
                 crate = data.get("crate", data)
+                description = crate.get("description") or "N/A"
                 results.append(
                     f"### crates.io: {crate.get('name', pkg)} v{crate.get('max_stable_version', crate.get('newest_version', '?'))}\n"
-                    f"- **License**: {crate.get('license', 'N/A')}\n"
-                    f"- **Description**: {crate.get('description', 'N/A')[:300]}\n"
+                    f"- **License**: {crate.get('license') or 'N/A'}\n"
+                    f"- **Description**: {description[:300]}\n"
                     f"- **URL**: https://crates.io/crates/{pkg}\n"
                 )
             elif reg == "go":
+                synopsis = data.get("synopsis") or "N/A"
                 results.append(
                     f"### pkg.go.dev: {data.get('name', pkg)} v{data.get('version', '?')}\n"
                     f"- **URL**: https://pkg.go.dev/{pkg}\n"
-                    f"- **Synopsis**: {data.get('synopsis', 'N/A')[:300]}\n"
+                    f"- **Synopsis**: {synopsis[:300]}\n"
                 )
             break  # stop after first successful registry
-        except Exception:
+        except (httpx.RequestError, json.JSONDecodeError):
             continue
 
     if results:
@@ -1443,12 +1448,12 @@ async def search_github_issues(
     ]
     for i, item in enumerate(items, 1):
         item_type = "PR" if "pull_request" in item else "Issue"
-        state_icon = "🟢" if item["state"] == "open" else ("🟣" if item["state"] == "merged" else "🔴")
+        state_label = "[open]" if item["state"] == "open" else ("[merged]" if item["state"] == "merged" else "[closed]")
         labels_str = ""
         if item.get("labels"):
             labels_str = " [" + ", ".join(lb["name"] for lb in item["labels"][:3]) + "]"
         lines.append(
-            f"### {i}. [{item_type} #{item['number']}]({item['html_url']}) {state_icon}{labels_str}\n"
+            f"### {i}. [{item_type} #{item['number']}]({item['html_url']}) {state_label}{labels_str}\n"
             f"**{item['title']}**\n"
             f"> {item.get('repository_url', '').replace('https://api.github.com/repos/', '')} | "
             f"by [{item['user']['login']}]({item['user']['html_url']}) "
@@ -1510,10 +1515,10 @@ async def search_security(
 
         vulns = data.get("vulns", [])
         if not vulns:
-            results.append(f"### {eco}: {pkg} — ✅ No known vulnerabilities")
+            results.append(f"### {eco}: {pkg} - OK: No known vulnerabilities")
             break  # found the right ecosystem
 
-        lines = [f"### {eco}: {pkg} — ⚠️ {len(vulns)} vulnerabilities\n"]
+        lines = [f"### {eco}: {pkg} - WARNING: {len(vulns)} vulnerabilities\n"]
         for v in vulns[:max_results]:
             vid = v.get("id", "unknown")
             aliases = ", ".join(v.get("aliases", [])[:3])
@@ -1732,7 +1737,7 @@ async def search_crawl(
     success = 0
     for url, title, content in results:
         if content is None:
-            lines.append(f"### ❌ {url}\n> {title}\n")
+            lines.append(f"### [failed] {url}\n> {title}\n")
         else:
             success += 1
             lines.append(f"### [{success}] {title}\n> {url}\n\n{content}\n")
@@ -1826,13 +1831,18 @@ async def web_fetch_code(
     title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
     title = title_match.group(1).strip() if title_match else "Untitled"
 
-    result = f"# {title} — Code Blocks\n> {url}\n\n"
-    result += f"_{len(code_blocks)} code block(s) found_\n\n"
-    result += "\n\n".join(code_blocks)
+    header = f"# {title} - Code Blocks\n> {url}\n\n"
+    header += f"_{len(code_blocks)} code block(s) found_\n\n"
+    body = "\n\n".join(code_blocks)
+    result = header + body
 
     if len(result) > max_length:
-        result = result[:max_length]
-        result += f"\n\n> [... truncated to {max_length} chars ...]"
+        notice = f"\n\n> [... truncated to {max_length} chars ...]"
+        body_limit = max(120, max_length - len(header) - len(notice))
+        body = body[:body_limit].rstrip()
+        if body.count("```") % 2:
+            body += "\n```"
+        result = header + body + notice
 
     return result
 
@@ -1868,22 +1878,22 @@ async def search_session(
 @mcp.tool(annotations=_READONLY_TOOL)
 async def list_engines() -> str:
     """Show all available search engines, their config status, and setup instructions."""
-    brave_status = "✅ configured" if os.environ.get(ENV_BRAVE_KEY) else "❌ not set"
-    google_status = "✅ configured" if (os.environ.get(ENV_GOOGLE_KEY) and os.environ.get(ENV_GOOGLE_CX)) else "❌ not set"
-    bing_status = "✅ configured" if os.environ.get(ENV_BING_KEY) else "❌ not set"
-    searxng_status = "✅ configured" if os.environ.get(ENV_SEARXNG_URL) else "❌ not set"
+    brave_status = "configured" if os.environ.get(ENV_BRAVE_KEY) else "not set"
+    google_status = "configured" if (os.environ.get(ENV_GOOGLE_KEY) and os.environ.get(ENV_GOOGLE_CX)) else "not set"
+    bing_status = "configured" if os.environ.get(ENV_BING_KEY) else "not set"
+    searxng_status = "configured" if os.environ.get(ENV_SEARXNG_URL) else "not set"
 
     return f"""
 ## Available Search Engines
 
 | Engine   | Backend                           | Free Tier           | Status      |
 |----------|-----------------------------------|---------------------|-------------|
-| auto     | DuckDuckGo (Bing+Yahoo+Brave)     | **Unlimited, free** | ✅ always   |
+| auto     | DuckDuckGo (Bing+Yahoo+Brave)     | **Unlimited, free** | always      |
 | brave    | Brave Search (independent index)  | 2000/mo             | {brave_status} |
 | google   | Google Custom Search              | 100/day             | {google_status} |
 | bing     | Bing Web Search v7                | 1000/mo             | {bing_status} |
-| baidu    | Baidu scraping                    | Unlimited (China)   | ✅ always   |
-| yahoo    | Yahoo via DDGS                    | Unlimited           | ✅ always   |
+| baidu    | Baidu scraping                    | Unlimited (China)   | always      |
+| yahoo    | Yahoo via DDGS                    | Unlimited           | always      |
 | searxng  | SearXNG (self-hosted metasearch)  | **Unlimited**       | {searxng_status} |
 
 ## Coding-Agent Tools (21 total)

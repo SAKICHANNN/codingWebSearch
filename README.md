@@ -108,7 +108,8 @@ With Brave Search (recommended free upgrade):
 ### Search Intelligence
 - **3D result ranking** — authority + freshness + relevance scoring
 - **Source authority** — official docs (1.0) > Stack Overflow (0.85) > blogs (0.5)
-- **Parallel engine execution** — all engines run concurrently via `asyncio.wait`
+- **Parallel engine execution** — all engines run concurrently via explicit
+  `asyncio.create_task()` tasks and `asyncio.wait`
 - **Smart dedup** — URL exact + title similarity (85%) across multi-engine results
 
 ### Security
