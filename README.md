@@ -1,4 +1,4 @@
-# codingmcp
+# codingWebSearch
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
@@ -15,8 +15,8 @@
 ### Install
 
 ```bash
-git clone https://github.com/SAKICHANNN/codingmcp.git
-cd codingmcp
+git clone https://github.com/SAKICHANNN/codingWebSearch.git
+cd codingWebSearch
 pip install -r requirements.txt
 ```
 
@@ -25,9 +25,9 @@ pip install -r requirements.txt
 ```json
 {
   "mcpServers": {
-    "codingmcp": {
+    "codingWebSearch": {
       "command": "python",
-      "args": ["path/to/codingmcp/server.py"]
+      "args": ["path/to/codingWebSearch/server.py"]
     }
   }
 }
@@ -38,9 +38,9 @@ pip install -r requirements.txt
 ```json
 {
   "mcpServers": {
-    "codingmcp": {
+    "codingWebSearch": {
       "command": "python",
-      "args": ["path/to/codingmcp/server.py"],
+      "args": ["path/to/codingWebSearch/server.py"],
       "env": {
         "BRAVE_SEARCH_API_KEY": "your-key-from-brave.com/search/api/"
       }

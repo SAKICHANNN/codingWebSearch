@@ -1,5 +1,5 @@
 [project]
-name = "codingmcp"
+name = "codingWebSearch"
 version = "0.2.0"
 description = "MCP server for coding agents — intelligent web search, documentation lookup, error debugging, and deep research with 14 specialized tools"
 readme = "README.md"
@@ -32,9 +32,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/SAKICHANNN/codingmcp"
-Repository = "https://github.com/SAKICHANNN/codingmcp"
-Issues = "https://github.com/SAKICHANNN/codingmcp/issues"
+Homepage = "https://github.com/SAKICHANNN/codingWebSearch"
+Repository = "https://github.com/SAKICHANNN/codingWebSearch"
+Issues = "https://github.com/SAKICHANNN/codingWebSearch/issues"
 
 [project.scripts]
-codingmcp = "server:main"
+codingWebSearch = "server:main"

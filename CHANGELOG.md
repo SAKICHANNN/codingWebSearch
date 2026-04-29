@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Renamed project from `websearch-mcp` to `codingmcp`
+- Renamed project from `websearch-mcp` to `codingWebSearch`
 - Switched search backend from `duckduckgo_search` to `ddgs` (v9 API)
 - Restructured codebase with clear sections: Constants, Cache, Helpers, Engines, Unified Search Core, Tools, Resources
 - Improved `web_fetch` code block preservation with language detection
