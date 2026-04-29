@@ -43,6 +43,6 @@ jobs:
           with open('server.py', encoding='utf-8') as f:
               content = f.read()
           tool_count = len(re.findall(r'@mcp\.tool\(', content))
-          assert tool_count >= 19, f'Expected >= 19 tools, got {tool_count}'
+          assert tool_count >= 21, f'Expected >= 21 tools, got {tool_count}'
           print(f'{tool_count} tools found — OK')
           "
