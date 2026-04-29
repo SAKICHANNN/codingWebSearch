@@ -145,10 +145,8 @@ _AUTHORITY_SCORES: dict[str, float] = {
     "angular.io": 1.0, "docs.djangoproject.com": 1.0, "golang.org": 0.95,
     # Cloud providers
     "docs.aws.amazon.com": 0.95, "cloud.google.com": 0.95,
-    "learn.microsoft.com/en-us/azure": 0.95,
     # Security
-    "nvd.nist.gov": 1.0, "cve.mitre.org": 1.0, "osv.dev": 0.95,
-    "github.com/advisories": 0.9, "snyk.io": 0.85,
+    "nvd.nist.gov": 1.0, "cve.mitre.org": 1.0, "osv.dev": 0.95, "snyk.io": 0.85,
 }
 
 ENV_BING_KEY = "BING_SEARCH_API_KEY"
@@ -183,7 +181,7 @@ def _session_add(session_id: str, query: str, results: list[dict]) -> None:
     _search_sessions[session_id]["history"].append({
         "query": query, "count": len(results),
         "time": time.time(),
-        "top_urls": [r["href"] for r in results[:3]],
+        "top_urls": [_as_text(r.get("href")) for r in results[:3]],
     })
     # Keep last 20 queries per session
     if len(_search_sessions[session_id]["history"]) > 20:

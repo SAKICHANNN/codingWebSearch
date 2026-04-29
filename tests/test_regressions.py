@@ -560,6 +560,14 @@ class FormattingRegressionTests(unittest.TestCase):
     def test_duplicate_detection_handles_nullable_fields(self):
         self.assertTrue(server._is_duplicate({"title": None, "href": None}, [{"title": None, "href": None}]))
 
+    def test_session_add_survives_missing_href(self):
+        server._search_sessions.clear()
+        results = [{"title": "No href here"}, {"href": "https://a.com", "title": "Has href"}]
+        server._session_add("test", "query", results)
+        self.assertIn("test", server._search_sessions)
+        self.assertEqual(server._search_sessions["test"]["history"][0]["count"], 2)
+        server._search_sessions.clear()
+
 
 if __name__ == "__main__":
     unittest.main()
