@@ -15,6 +15,16 @@ All notable changes to this project will be documented in this file.
   header or leaving unbalanced markdown code fences.
 - `search_package` registry parsing now handles nullable metadata explicitly and
   only suppresses network/JSON failures during registry fallback.
+- Search cache keys now include `safesearch`, `timelimit`, and resolved engine
+  chain, preventing stale results across different search filters.
+- Cached search results now update `search_session` history when a `session_id`
+  is provided.
+- Google engine configuration checks now require both `GOOGLE_API_KEY` and
+  `GOOGLE_CSE_ID` before reporting the engine as usable.
+- Startup diagnostics now report the actual registered tool count and complete
+  engine key-set status.
+- `search_crawl` elapsed time now includes the real fetch and extraction work.
+- Docker metadata now reflects the current 21-tool, 7-engine release surface.
 
 ## [0.6.0] — 2026-04-29
 

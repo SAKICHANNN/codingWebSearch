@@ -668,6 +668,12 @@ _NO_KEY_MSGS = {
     "searxng": "Engine 'searxng' needs SEARXNG_URL. Set to your instance URL (e.g. http://localhost:8080).",
 }
 
+def _required_keys_present(required_key: str | None) -> bool:
+    """Return True when an engine has no key requirement or all required env vars are set."""
+    if not required_key:
+        return True
+    return all(os.environ.get(k) for k in required_key.split("+"))
+
 async def _search_with_engine(
     query, engine, max_results=10, region="wt-wt", safesearch="off", timelimit=None
 ) -> list[dict]:
@@ -733,29 +739,36 @@ async def _do_search(
             sites = " OR ".join(f"site:{d}" for d in scoped_domains[:3])
             search_query = f"({sites}) {search_query}"
 
-    # Cache check — key includes max_results so different sizes don't share stale entries
-    cache_key = _cache_key(label, search_query, engine, region=region, max_results=max_results, fmt=output_format)
+    engines_to_try = _resolve_engines(engine)
+
+    # Cache key includes every request option that can change engine results.
+    cache_key = _cache_key(
+        label,
+        search_query,
+        engine,
+        engines=",".join(engines_to_try),
+        region=region,
+        safesearch=safesearch,
+        timelimit=timelimit,
+        max_results=max_results,
+        fmt=output_format,
+    )
     cached = _cache_get(cache_key)
     if cached:
+        if session_id:
+            _session_add(session_id, query, cached)
         if output_format == "compact":
             return _format_compact(query, cached, label)
         elif output_format == "links":
             return _format_links(query, cached, label)
         return _format_results(query, cached, label, show_authority=sort_by_authority)
 
-    engines_to_try = _resolve_engines(engine)
-
     # API key check for single engine
     if len(engines_to_try) == 1:
         eng = engines_to_try[0]
         required_key = _ENGINE_INFO.get(eng, {}).get("key")
-        if required_key and not os.environ.get(required_key.split("+")[0]):
-            if isinstance(required_key, str) and "+" in required_key:
-                keys = required_key.split("+")
-                if not all(os.environ.get(k) for k in keys):
-                    return _NO_KEY_MSGS.get(eng, f"'{eng}' needs API keys. Use 'auto' instead. (Engine '{eng}' falls back to auto)")
-            elif not os.environ.get(required_key):
-                return _NO_KEY_MSGS.get(eng, f"'{eng}' needs an API key. Use 'auto' instead. (Engine '{eng}' falls back to auto)")
+        if required_key and not _required_keys_present(required_key):
+            return _NO_KEY_MSGS.get(eng, f"'{eng}' needs API keys. Use 'auto' instead.")
 
     # Try engines in parallel (with overall time budget)
     last_errors = []
@@ -767,12 +780,8 @@ async def _do_search(
         """Search one engine with retries. Returns (engine_name, results, error)."""
         info = _ENGINE_INFO.get(eng, {})
         required_key = info.get("key")
-        if required_key:
-            if isinstance(required_key, str) and "+" in required_key:
-                if not all(os.environ.get(k) for k in required_key.split("+")):
-                    return (eng, [], f"[{eng}] keys not configured, skip")
-            elif not os.environ.get(required_key or ""):
-                return (eng, [], f"[{eng}] key not set, skip")
+        if required_key and not _required_keys_present(required_key):
+            return (eng, [], f"[{eng}] keys not configured, skip")
 
         # Rate limit check for public APIs
         if eng in ("brave", "google", "bing"):
@@ -1681,6 +1690,7 @@ async def search_crawl(
         max_pages: Max pages to crawl (1-30 for URLs, 1-50 for base_url mode).
         max_length_per_page: Max characters per page (default 3000).
     """
+    t_start = time.time()
     target_urls = []
     if urls.strip():
         target_urls = [u.strip() for u in re.split(r'[,\n]+', urls.strip()) if u.strip()]
@@ -1732,7 +1742,6 @@ async def search_crawl(
     tasks = [_crawl_one(u) for u in target_urls[:max_pages]]
     results = await asyncio.gather(*tasks)
 
-    t_start = time.time()
     lines = [f"## Crawl Results: {len(results)} pages\n"]
     success = 0
     for url, title, content in results:
@@ -1986,11 +1995,15 @@ def _startup_diagnostics():
     py_ver = f"{_sys.version_info.major}.{_sys.version_info.minor}.{_sys.version_info.micro}"
     engines_configured = [
         e for e, info in _ENGINE_INFO.items()
-        if info.get("key") is None or os.environ.get((info["key"].split("+")[0] if "+" in str(info.get("key", "")) else info.get("key", "")))
+        if _required_keys_present(info.get("key"))
     ]
+    tool_count = len([
+        n for n, obj in globals().items()
+        if callable(obj) and (n.startswith("search_") or n.startswith("web_") or n == "list_engines")
+    ])
     _sys.stderr.write(f"[codingWebSearch v0.6.0] Python {py_ver} | "
                       f"{len(engines_configured)}/{len(_ENGINE_INFO)} engines | "
-                      f"{len([n for n in dir() if n.startswith('search_') or n.startswith('web_') or n == 'list_engines'])} tools\n")
+                      f"{tool_count} tools\n")
     optional_keys = {ENV_BRAVE_KEY, ENV_GOOGLE_KEY, ENV_GOOGLE_CX, ENV_BING_KEY, ENV_SEARXNG_URL}
     missing = [k for k in optional_keys if not os.environ.get(k)]
     if missing:

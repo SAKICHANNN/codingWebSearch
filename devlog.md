@@ -15,6 +15,16 @@
   fences when output is truncated.
 - Package registry fallback: nullable metadata is handled directly, while fallback
   suppression is limited to request and JSON decode failures.
+- Search cache correctness: cache keys now include `safesearch`, `timelimit`, and
+  the resolved engine chain, so different filters cannot reuse stale results.
+- Session tracking: cached search hits now still append to `search_session` history.
+- Engine configuration: Google is considered configured only when both API key and
+  CSE ID are set; startup diagnostics use the same key-set logic as search.
+- Startup diagnostics: tool count now comes from module globals instead of local
+  scope, fixing the `0 tools` startup report.
+- Crawl timing: `search_crawl` now starts its timer before base-page fetch and
+  parallel page fetches.
+- Docker metadata: OCI description now matches the current 21-tool, 7-engine surface.
 
 ### New Features
 
