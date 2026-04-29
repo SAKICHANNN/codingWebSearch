@@ -25,6 +25,14 @@ All notable changes to this project will be documented in this file.
   engine key-set status.
 - `search_crawl` elapsed time now includes the real fetch and extraction work.
 - Docker metadata now reflects the current 21-tool, 7-engine release surface.
+- `search_security(ecosystem="auto")` now checks all supported ecosystems before
+  reporting no vulnerabilities, avoiding false PyPI-only OK results for npm/Go/etc.
+- `search_security` now extracts fixed versions from OSV affected ranges and
+  handles nullable vulnerability fields.
+- `search_github_issues` now expands comma-separated labels into valid GitHub
+  search filters and handles issues with null bodies.
+- Search result formatting and deduplication now tolerate nullable `title`,
+  `href`, `body`, and `engine` fields from upstream providers.
 
 ## [0.6.0] — 2026-04-29
 

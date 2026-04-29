@@ -25,6 +25,14 @@
 - Crawl timing: `search_crawl` now starts its timer before base-page fetch and
   parallel page fetches.
 - Docker metadata: OCI description now matches the current 21-tool, 7-engine surface.
+- Security lookup: auto mode now checks every supported OSV ecosystem instead of
+  stopping on the first no-vulnerability response, preventing false OK reports.
+- Security output: fixed versions are extracted from OSV affected range events, and
+  nullable summary/alias/severity fields are handled safely.
+- GitHub issues: comma-separated labels now become separate `label:` filters with
+  quoted labels when needed; null issue bodies render as `(no description)`.
+- Result rendering: search formatters and duplicate detection now tolerate nullable
+  upstream fields from search providers.
 
 ### New Features
 

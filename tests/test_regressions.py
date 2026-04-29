@@ -4,6 +4,7 @@ import io
 import os
 import re
 import unittest
+from urllib.parse import parse_qs, unquote, urlparse
 
 import server
 
@@ -188,6 +189,185 @@ class FetchCodeRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         elapsed = int(re.search(r"fetched in (\d+)ms", result).group(1))
         self.assertGreaterEqual(elapsed, 15)
+
+
+class ExternalApiRegressionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_search_security_auto_checks_past_first_no_vulns_ecosystem(self):
+        original = server.httpx.AsyncClient
+        seen = []
+
+        class Resp:
+            status_code = 200
+
+            def json(self):
+                if seen[-1] == "npm":
+                    return {"vulns": [{"id": "NPM-1", "summary": "bad"}]}
+                return {}
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def post(self, _url, json):
+                seen.append(json["package"]["ecosystem"])
+                return Resp()
+
+        server.httpx.AsyncClient = Client
+        try:
+            result = await server.search_security("lodash")
+        finally:
+            server.httpx.AsyncClient = original
+
+        self.assertIn("NPM-1", result)
+        self.assertNotIn("PyPI: lodash - OK", result)
+        self.assertIn("npm", seen)
+
+    async def test_search_security_extracts_fixed_versions_from_osv_ranges(self):
+        original = server.httpx.AsyncClient
+
+        class Resp:
+            status_code = 200
+
+            def json(self):
+                return {
+                    "vulns": [
+                        {
+                            "id": "OSV-1",
+                            "summary": None,
+                            "aliases": None,
+                            "affected": [
+                                {
+                                    "ranges": [
+                                        {"events": [{"introduced": "0"}, {"fixed": "1.2.3"}]}
+                                    ]
+                                }
+                            ],
+                        }
+                    ]
+                }
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def post(self, *_args, **_kwargs):
+                return Resp()
+
+        server.httpx.AsyncClient = Client
+        try:
+            result = await server.search_security("pkg", ecosystem="npm")
+        finally:
+            server.httpx.AsyncClient = original
+
+        self.assertIn("No description", result)
+        self.assertIn("Aliases: none", result)
+        self.assertIn("Fixed in: 1.2.3", result)
+
+    async def test_github_issue_labels_are_split_and_quoted(self):
+        original = server.httpx.AsyncClient
+        urls = []
+
+        class Resp:
+            status_code = 200
+            text = "{}"
+
+            def json(self):
+                return {"items": []}
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def get(self, url, headers=None):
+                urls.append(url)
+                return Resp()
+
+        server.httpx.AsyncClient = Client
+        try:
+            await server.search_github_issues(query="x", labels="bug,good first issue")
+        finally:
+            server.httpx.AsyncClient = original
+
+        search_q = unquote(parse_qs(urlparse(urls[0]).query)["q"][0])
+        self.assertIn("label:bug", search_q)
+        self.assertIn('label:"good first issue"', search_q)
+
+    async def test_github_issue_null_body_does_not_crash(self):
+        original = server.httpx.AsyncClient
+
+        class Resp:
+            status_code = 200
+            text = "{}"
+
+            def json(self):
+                return {
+                    "total_count": 1,
+                    "items": [
+                        {
+                            "number": 1,
+                            "html_url": "https://github.com/o/r/issues/1",
+                            "state": "open",
+                            "title": "T",
+                            "repository_url": "https://api.github.com/repos/o/r",
+                            "user": {"login": "u", "html_url": "https://github.com/u"},
+                            "comments": 0,
+                            "updated_at": "2026-04-29T00:00:00Z",
+                            "body": None,
+                            "labels": [],
+                        }
+                    ],
+                }
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def get(self, *_args, **_kwargs):
+                return Resp()
+
+        server.httpx.AsyncClient = Client
+        try:
+            result = await server.search_github_issues(query="x")
+        finally:
+            server.httpx.AsyncClient = original
+
+        self.assertIn("(no description)", result)
+
+
+class FormattingRegressionTests(unittest.TestCase):
+    def test_result_formatters_handle_nullable_fields(self):
+        result = {"title": None, "href": None, "body": None, "engine": None}
+        self.assertIn("No title", server._build_result(1, result))
+        self.assertIn("(no snippet)", server._build_result(1, result))
+        self.assertIn("[No title]()", server._format_compact("q", [result], "Label"))
+        self.assertIn("1. ", server._format_links("q", [result], "Label"))
+
+    def test_duplicate_detection_handles_nullable_fields(self):
+        self.assertTrue(server._is_duplicate({"title": None, "href": None}, [{"title": None, "href": None}]))
 
 
 if __name__ == "__main__":

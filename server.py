@@ -228,6 +228,11 @@ def _cache_set(key: str, results: list[dict]) -> None:
 # Helpers
 # ===========================================================================
 
+def _as_text(value, default: str = "") -> str:
+    if value is None:
+        return default
+    return str(value)
+
 def _retry_sleep(attempt: int) -> float:
     return min(2 ** attempt, 8.0)
 
@@ -255,7 +260,7 @@ def _source_freshness(body: str, title: str = "") -> float:
     """Estimate content freshness from snippet text. Returns a boost factor (0-0.2).
     More recent = higher score. Detects year mentions and relative time indicators."""
     score = 0.0
-    text = (body + " " + title).lower()
+    text = (_as_text(body) + " " + _as_text(title)).lower()
 
     # Explicit year mentions
     current_year = datetime.datetime.now().year
@@ -292,7 +297,7 @@ def _relevance_score(result: dict, query: str) -> float:
     query_terms = set(re.findall(r'[a-zA-Z0-9]+', query.lower()))
     if not query_terms:
         return 0.0
-    result_text = (result.get("title", "") + " " + result.get("body", "")).lower()
+    result_text = (_as_text(result.get("title")) + " " + _as_text(result.get("body"))).lower()
     result_terms = set(re.findall(r'[a-zA-Z0-9]+', result_text))
     overlap = len(query_terms & result_terms) / len(query_terms)
     return round(overlap * 0.3, 2)
@@ -347,12 +352,12 @@ def _build_site_query(query: str, domains: list[str]) -> str:
     return f"({sites}) {query}"
 
 def _build_result(index: int, result: dict) -> str:
-    title = result.get("title", "No title")
+    title = _as_text(result.get("title"), "No title")
     if len(title) > 150:
         title = title[:147] + "..."
-    href = result.get("href", "")
-    body = result.get("body", "")
-    engine = result.get("engine", "")
+    href = _as_text(result.get("href"))
+    body = _as_text(result.get("body"))
+    engine = _as_text(result.get("engine"))
     authority = result.get("_authority", 0)
     tags = []
     if engine:
@@ -396,9 +401,9 @@ def _format_compact(query: str, results: list[dict], label: str, elapsed_ms: flo
     meta += "_"
     lines = [header, meta, ""]
     for i, r in enumerate(results, 1):
-        title = r.get("title", "No title")[:120]
-        href = r.get("href", "")
-        engine = r.get("engine", "")
+        title = _as_text(r.get("title"), "No title")[:120]
+        href = _as_text(r.get("href"))
+        engine = _as_text(r.get("engine"))
         tag = f" [{engine}]" if engine else ""
         lines.append(f"{i}. [{title}]({href}){tag}")
     return "\n".join(lines)
@@ -413,7 +418,7 @@ def _format_links(query: str, results: list[dict], label: str, elapsed_ms: float
     meta += "_"
     lines = [header, meta, ""]
     for i, r in enumerate(results, 1):
-        lines.append(f"{i}. {r.get('href', '')}")
+        lines.append(f"{i}. {_as_text(r.get('href'))}")
     return "\n".join(lines)
 
 
@@ -494,12 +499,12 @@ async def _fetch(url: str, timeout: int, headers: dict | None = None) -> tuple[s
     return None, "Max retries exceeded"
 
 def _is_duplicate(result: dict, seen: list[dict], title_threshold: float = 0.85) -> bool:
-    url = result.get("href", "")
-    title = result.get("title", "")
+    url = _as_text(result.get("href"))
+    title = _as_text(result.get("title"))
     for s in seen:
-        if s["href"] == url:
+        if _as_text(s.get("href")) == url:
             return True
-        if _title_similar(s["title"], title) >= title_threshold:
+        if _title_similar(_as_text(s.get("title")), title) >= title_threshold:
             return True
     return False
 
@@ -1425,7 +1430,12 @@ async def search_github_issues(
     if state in ("open", "closed"):
         search_parts.append(f"state:{state}")
     if labels.strip():
-        search_parts.append(f"label:{labels.strip()}")
+        for label in [lb.strip() for lb in labels.split(",") if lb.strip()]:
+            escaped_label = label.replace('"', '\\"')
+            if re.search(r"\s", escaped_label):
+                search_parts.append(f'label:"{escaped_label}"')
+            else:
+                search_parts.append(f"label:{escaped_label}")
     search_q = " ".join(search_parts)
 
     url = f"https://api.github.com/search/issues?q={quote_plus(search_q)}&per_page={max_results}&sort=updated&order=desc"
@@ -1467,8 +1477,8 @@ async def search_github_issues(
             f"> {item.get('repository_url', '').replace('https://api.github.com/repos/', '')} | "
             f"by [{item['user']['login']}]({item['user']['html_url']}) "
             f"| {item.get('comments', 0)} comments | "
-            f"updated {item.get('updated_at', '?')[:10]}\n\n"
-            f"{item.get('body', '(no description)')[:500]}\n"
+            f"updated {_as_text(item.get('updated_at'), '?')[:10]}\n\n"
+            f"{_as_text(item.get('body'), '(no description)')[:500]}\n"
         )
     return "\n".join(lines)
 
@@ -1508,6 +1518,20 @@ async def search_security(
     else:
         ecosystems_to_try = [ecosystem]
 
+    def _fixed_versions(vuln: dict) -> str:
+        fixed_versions = []
+        if vuln.get("fixed"):
+            fixed_versions.append(_as_text(vuln.get("fixed")))
+        for affected in vuln.get("affected", []) or []:
+            for rng in affected.get("ranges", []) or []:
+                for event in rng.get("events", []) or []:
+                    if event.get("fixed"):
+                        fixed_versions.append(_as_text(event.get("fixed")))
+        fixed_versions = list(dict.fromkeys(fixed_versions))
+        return ", ".join(fixed_versions) if fixed_versions else "not specified"
+
+    auto_mode = ecosystem == "auto"
+    checked_ecosystems = []
     results = []
     for eco in ecosystems_to_try:
         try:
@@ -1519,34 +1543,44 @@ async def search_security(
                 if resp.status_code != 200:
                     continue
                 data = resp.json()
-        except Exception:
+        except (httpx.RequestError, json.JSONDecodeError):
             continue
 
-        vulns = data.get("vulns", [])
+        checked_ecosystems.append(eco)
+        vulns = data.get("vulns") or []
         if not vulns:
-            results.append(f"### {eco}: {pkg} - OK: No known vulnerabilities")
-            break  # found the right ecosystem
+            if not auto_mode:
+                results.append(f"### {eco}: {pkg} - OK: No known vulnerabilities")
+                break
+            continue
 
         lines = [f"### {eco}: {pkg} - WARNING: {len(vulns)} vulnerabilities\n"]
         for v in vulns[:max_results]:
             vid = v.get("id", "unknown")
-            aliases = ", ".join(v.get("aliases", [])[:3])
-            summary = v.get("summary", "No description")[:300]
+            aliases = ", ".join(_as_text(alias) for alias in (v.get("aliases") or [])[:3])
+            summary = _as_text(v.get("summary"), "No description")[:300]
             severity = ""
-            for sev in v.get("severity", []):
+            for sev in v.get("severity") or []:
                 if sev.get("type") == "CVSS_V3":
                     severity = f" | CVSS: {sev.get('score', '?')}"
-            fixed = v.get("fixed", "not yet fixed")
+            fixed = _fixed_versions(v)
             lines.append(
                 f"- **{vid}**{severity}\n"
                 f"  {summary}\n"
                 f"  Aliases: {aliases or 'none'} | Fixed in: {fixed}\n"
             )
         results.append("\n".join(lines))
-        break  # found the right ecosystem
+        if not auto_mode:
+            break
 
     if results:
         return "\n\n".join(results)
+
+    if auto_mode and checked_ecosystems:
+        return (
+            f"No known vulnerabilities found for '{pkg}' in checked ecosystems: "
+            f"{', '.join(checked_ecosystems)}."
+        )
 
     return (
         f"No vulnerability data found for '{pkg}'.\n"
