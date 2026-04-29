@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 from ddgs import DDGS
 from ddgs.exceptions import DDGSException, RatelimitException, TimeoutException
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations, Annotations as ResourceAnnotations
 
 # ===========================================================================
 # MCP Server
@@ -25,6 +26,9 @@ class SearchError(Exception):
     pass
 
 
+# Shared annotations — all tools in this server are read-only
+_READONLY_TOOL = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True)
+
 # ===========================================================================
 # Constants
 # ===========================================================================
@@ -36,6 +40,7 @@ USER_AGENT = (
 
 SEARCH_TIMEOUT = 20
 FETCH_TIMEOUT = 30
+SEARCH_OVERALL_TIMEOUT = 60  # hard cap for multi-engine search
 MAX_RESULTS = 50
 DEFAULT_MAX_LENGTH = 12000
 CACHE_TTL = 300
@@ -356,34 +361,37 @@ def _validate_url(url: str) -> str | None:
         return "URL has no hostname."
     return None
 
-def _extract_text(html: str) -> str:
-    soup = BeautifulSoup(html, "html.parser")
-    for pre in soup.find_all("pre"):
-        code = pre.find("code")
-        lang = ""
-        if code:
-            cls = code.get("class", [])
-            for c in cls:
-                if c.startswith("language-") or c.startswith("lang-"):
-                    lang = c.split("-", 1)[1]
-                    break
-            content = code.get_text()
-        else:
-            content = pre.get_text()
-        lang_marker = f" {lang}" if lang else ""
-        pre.replace_with(f"\n```{lang_marker}\n{content.strip()}\n```\n")
-    for code_tag in soup.find_all("code"):
-        code_tag.replace_with(f"`{code_tag.get_text()}`")
-    for tag in STRIP_TAGS:
-        for el in soup.find_all(tag):
-            el.decompose()
-    main = soup.find("article") or soup.find("main") or soup.find("body")
-    if not main:
-        return ""
-    text = main.get_text(separator="\n")
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return "\n".join(line.strip() for line in text.splitlines()).strip()
+async def _extract_text(html: str) -> str:
+    """Extract readable text from HTML. CPU-bound parsing runs in thread pool."""
+    def _parse():
+        soup = BeautifulSoup(html, "html.parser")
+        for pre in soup.find_all("pre"):
+            code = pre.find("code")
+            lang = ""
+            if code:
+                cls = code.get("class", [])
+                for c in cls:
+                    if c.startswith("language-") or c.startswith("lang-"):
+                        lang = c.split("-", 1)[1]
+                        break
+                content = code.get_text()
+            else:
+                content = pre.get_text()
+            lang_marker = f" {lang}" if lang else ""
+            pre.replace_with(f"\n```{lang_marker}\n{content.strip()}\n```\n")
+        for code_tag in soup.find_all("code"):
+            code_tag.replace_with(f"`{code_tag.get_text()}`")
+        for tag in STRIP_TAGS:
+            for el in soup.find_all(tag):
+                el.decompose()
+        main = soup.find("article") or soup.find("main") or soup.find("body")
+        if not main:
+            return ""
+        text = main.get_text(separator="\n")
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return "\n".join(line.strip() for line in text.splitlines()).strip()
+    return await asyncio.to_thread(_parse)
 
 async def _fetch(url: str, timeout: int, headers: dict | None = None) -> tuple[str | None, str | None]:
     err = _validate_url(url)
@@ -510,25 +518,32 @@ async def _search_baidu(query: str, max_results: int) -> list[dict]:
     html, err = await _fetch(url, SEARCH_TIMEOUT)
     if err:
         raise DDGSException(f"Baidu: {err}")
-    soup = BeautifulSoup(html, "html.parser")
-    results = []
-    for container in soup.select("div.result, div.c-container, div.c-result"):
-        if len(results) >= max_results:
-            break
-        title_el = container.find("h3")
-        link_el = container.find("a", href=True)
-        if not title_el or not link_el:
-            continue
-        snippet_el = container.select_one(
-            "span.content-right_8Zs40, div.c-abstract, span.c-font-normal, div.c-span-last"
-        )
-        results.append({
-            "title": title_el.get_text(strip=True),
-            "href": link_el["href"],
-            "body": (snippet_el.get_text(strip=True) if snippet_el else "")[:500],
-            "engine": "baidu",
-            "_authority": _source_authority(link_el["href"]),
-        })
+
+    def _parse_baidu():
+        soup = BeautifulSoup(html, "html.parser")
+        results = []
+        for container in soup.select("div.result, div.c-container, div.c-result"):
+            if len(results) >= max_results:
+                break
+            title_el = container.find("h3")
+            link_el = container.find("a", href=True)
+            if not title_el or not link_el:
+                continue
+            # Try to extract real URL from Baidu's redirect wrapper
+            real_href = link_el.get("data-url") or link_el.get("mu") or link_el["href"]
+            snippet_el = container.select_one(
+                "span.content-right_8Zs40, div.c-abstract, span.c-font-normal, div.c-span-last"
+            )
+            results.append({
+                "title": title_el.get_text(strip=True),
+                "href": real_href,
+                "body": (snippet_el.get_text(strip=True) if snippet_el else "")[:500],
+                "engine": "baidu",
+                "_authority": _source_authority(real_href),
+            })
+        return results
+
+    results = await asyncio.to_thread(_parse_baidu)
     if not results:
         raise DDGSException("Baidu returned no parseable results.")
     return results
@@ -641,12 +656,16 @@ async def _do_search(
             elif not os.environ.get(required_key):
                 return _NO_KEY_MSGS.get(eng, f"'{eng}' needs an API key. Use 'auto' instead. (Engine '{eng}' falls back to auto)")
 
-    # Try engines
+    # Try engines (with overall time budget for multi-engine mode)
     last_errors = []
     all_results = []
     seen = []
 
     for eng in engines_to_try:
+        # Stop trying more engines if overall budget exhausted and we have some results
+        elapsed_since_start = time.time() - t_start
+        if elapsed_since_start > SEARCH_OVERALL_TIMEOUT and all_results:
+            break
         info = _ENGINE_INFO.get(eng, {})
         required_key = info.get("key")
         if required_key:
@@ -731,7 +750,7 @@ async def _do_search(
 # Core Tools
 # ===========================================================================
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def web_search(
     query: str, engine: str = "auto", region: str = "wt-wt",
     safesearch: str = "off", timelimit: str | None = None, max_results: int = 10,
@@ -758,7 +777,7 @@ async def web_search(
         session_id=session_id or None,
     )
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def search_code(
     query: str, engine: str = "auto", max_results: int = 10,
     timelimit: str | None = None,
@@ -780,7 +799,7 @@ async def search_code(
         scoped_domains=_CODE_DOMAINS, query_category="code",
     )
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def search_docs(
     query: str, engine: str = "auto", max_results: int = 10,
 ) -> str:
@@ -800,7 +819,7 @@ async def search_docs(
         scoped_domains=_DOCS_DOMAINS, query_category="api",
     )
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def search_paper(
     query: str, engine: str = "auto", max_results: int = 10,
     timelimit: str | None = None,
@@ -822,7 +841,7 @@ async def search_paper(
         scoped_domains=_PAPER_DOMAINS, query_category="code",
     )
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def search_github(
     query: str, engine: str = "auto", max_results: int = 10,
     timelimit: str | None = None,
@@ -848,7 +867,7 @@ async def search_github(
 # Advanced Coding-Agent Tools
 # ===========================================================================
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def search_error(
     error_message: str,
     language: str = "",
@@ -879,7 +898,7 @@ async def search_error(
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def search_api(
     library: str,
     method: str = "",
@@ -910,7 +929,7 @@ async def search_api(
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def search_compare(
     tech_a: str,
     tech_b: str,
@@ -942,7 +961,7 @@ async def search_compare(
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def search_deep(
     topic: str,
     engine: str = "auto",
@@ -1002,7 +1021,7 @@ async def search_deep(
             fetched.append(f"### [{i}] {url}\n> ⚠ Fetch error: {err}\n")
             continue
 
-        text = _extract_text(html)
+        text = await _extract_text(html)
         if not text:
             fetched.append(f"### [{i}] {url}\n> ⚠ No readable content\n")
             continue
@@ -1024,7 +1043,7 @@ async def search_deep(
     return header + "\n---\n" + "\n---\n".join(fetched) + "\n\n---\n### Search Results\n" + search_result
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def search_similar_repos(
     repo_description: str,
     language: str = "",
@@ -1059,7 +1078,7 @@ async def search_similar_repos(
 # Content Fetching
 # ===========================================================================
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def web_fetch(
     url: str, max_length: int = DEFAULT_MAX_LENGTH,
     timeout: int = FETCH_TIMEOUT,
@@ -1077,7 +1096,7 @@ async def web_fetch(
     if err:
         raise SearchError(err)
 
-    text = _extract_text(html)
+    text = await _extract_text(html)
     if not text:
         raise SearchError("No readable text found on this page.")
 
@@ -1093,7 +1112,7 @@ async def web_fetch(
     return prefix + text
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def web_fetch_code(
     url: str, max_length: int = DEFAULT_MAX_LENGTH,
     timeout: int = FETCH_TIMEOUT,
@@ -1112,23 +1131,26 @@ async def web_fetch_code(
     if err:
         raise SearchError(err)
 
-    soup = BeautifulSoup(html, "html.parser")
-    code_blocks = []
+    def _parse_code_blocks():
+        soup = BeautifulSoup(html, "html.parser")
+        blocks = []
+        for pre in soup.find_all("pre"):
+            code = pre.find("code")
+            lang = ""
+            if code:
+                cls = code.get("class", [])
+                for c in cls:
+                    if c.startswith("language-") or c.startswith("lang-"):
+                        lang = c.split("-", 1)[1]
+                        break
+                content = code.get_text()
+            else:
+                content = pre.get_text()
+            lang_marker = f" {lang}" if lang else ""
+            blocks.append(f"```{lang_marker}\n{content.strip()}\n```")
+        return blocks
 
-    for pre in soup.find_all("pre"):
-        code = pre.find("code")
-        lang = ""
-        if code:
-            cls = code.get("class", [])
-            for c in cls:
-                if c.startswith("language-") or c.startswith("lang-"):
-                    lang = c.split("-", 1)[1]
-                    break
-            content = code.get_text()
-        else:
-            content = pre.get_text()
-        lang_marker = f" {lang}" if lang else ""
-        code_blocks.append(f"```{lang_marker}\n{content.strip()}\n```")
+    code_blocks = await asyncio.to_thread(_parse_code_blocks)
 
     if not code_blocks:
         raise SearchError("No code blocks found on this page.")
@@ -1151,7 +1173,7 @@ async def web_fetch_code(
 # Meta tools
 # ===========================================================================
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def search_session(
     session_id: str = "default",
     action: str = "view",
@@ -1175,7 +1197,7 @@ async def search_session(
     return _session_context(session_id)
 
 
-@mcp.tool()
+@mcp.tool(annotations=_READONLY_TOOL)
 async def list_engines() -> str:
     """Show all available search engines, their config status, and setup instructions."""
     brave_status = "✅ configured" if os.environ.get(ENV_BRAVE_KEY) else "❌ not set"
@@ -1234,27 +1256,29 @@ export SEARCH_ENGINES=brave,auto
 # MCP Resources — expose domain lists and templates
 # ===========================================================================
 
-@mcp.resource("search://domains/code", mime_type="application/json")
+_RESOURCE_ANNOTATIONS = ResourceAnnotations(audience=["assistant"], priority=0.7)
+
+@mcp.resource("search://domains/code", mime_type="application/json", annotations=_RESOURCE_ANNOTATIONS)
 def resource_code_domains() -> str:
     """Code Q&A domains used by search_code."""
     return json.dumps(_CODE_DOMAINS, indent=2)
 
-@mcp.resource("search://domains/docs", mime_type="application/json")
+@mcp.resource("search://domains/docs", mime_type="application/json", annotations=_RESOURCE_ANNOTATIONS)
 def resource_docs_domains() -> str:
     """Documentation domains used by search_docs."""
     return json.dumps(_DOCS_DOMAINS, indent=2)
 
-@mcp.resource("search://domains/paper", mime_type="application/json")
+@mcp.resource("search://domains/paper", mime_type="application/json", annotations=_RESOURCE_ANNOTATIONS)
 def resource_paper_domains() -> str:
     """Academic paper domains used by search_paper."""
     return json.dumps(_PAPER_DOMAINS, indent=2)
 
-@mcp.resource("search://domains/github", mime_type="application/json")
+@mcp.resource("search://domains/github", mime_type="application/json", annotations=_RESOURCE_ANNOTATIONS)
 def resource_github_domains() -> str:
     """Repository domains used by search_github."""
     return json.dumps(_GITHUB_DOMAINS, indent=2)
 
-@mcp.resource("search://authority", mime_type="application/json")
+@mcp.resource("search://authority", mime_type="application/json", annotations=_RESOURCE_ANNOTATIONS)
 def resource_authority() -> str:
     """Source authority scores for result ranking."""
     return json.dumps(_AUTHORITY_SCORES, indent=2)
