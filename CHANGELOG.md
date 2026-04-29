@@ -40,6 +40,8 @@ All notable changes to this project will be documented in this file.
 - `web_fetch` and `web_fetch_code` normalize negative `max_length` values to zero
   before truncating output.
 - Troubleshooting diagnostics now use ASCII status text instead of emoji markers.
+- GitHub issue rendering now tolerates nullable metadata such as missing user,
+  title, labels, state, URL, comment count, and update timestamp.
 
 ## [0.6.0] — 2026-04-29
 

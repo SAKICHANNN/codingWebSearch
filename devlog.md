@@ -43,6 +43,8 @@
   producing confusing negative truncation messages.
 - Troubleshooting docs: diagnostic script output now uses ASCII status labels for
   console portability.
+- GitHub issue rendering: nullable metadata from the REST API now falls back to
+  stable text instead of raising during result formatting.
 
 ### New Features
 

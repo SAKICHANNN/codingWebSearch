@@ -1472,16 +1472,27 @@ async def search_github_issues(
     ]
     for i, item in enumerate(items, 1):
         item_type = "PR" if "pull_request" in item else "Issue"
-        state_label = "[open]" if item["state"] == "open" else ("[merged]" if item["state"] == "merged" else "[closed]")
+        state = _as_text(item.get("state")).lower()
+        state_label = "[open]" if state == "open" else ("[merged]" if state == "merged" else "[closed]")
         labels_str = ""
-        if item.get("labels"):
-            labels_str = " [" + ", ".join(lb["name"] for lb in item["labels"][:3]) + "]"
+        label_names = [
+            _as_text(lb.get("name") if isinstance(lb, dict) else lb)
+            for lb in (item.get("labels") or [])[:3]
+        ]
+        label_names = [name for name in label_names if name]
+        if label_names:
+            labels_str = " [" + ", ".join(label_names) + "]"
+        user = item.get("user") or {}
+        user_login = _as_text(user.get("login") if isinstance(user, dict) else None, "unknown")
+        user_url = _as_text(user.get("html_url") if isinstance(user, dict) else None)
+        user_text = f"[{user_login}]({user_url})" if user_url else user_login
         lines.append(
-            f"### {i}. [{item_type} #{item['number']}]({item['html_url']}) {state_label}{labels_str}\n"
-            f"**{item['title']}**\n"
-            f"> {item.get('repository_url', '').replace('https://api.github.com/repos/', '')} | "
-            f"by [{item['user']['login']}]({item['user']['html_url']}) "
-            f"| {item.get('comments', 0)} comments | "
+            f"### {i}. [{item_type} #{_as_text(item.get('number'), '?')}]"
+            f"({_as_text(item.get('html_url'))}) {state_label}{labels_str}\n"
+            f"**{_as_text(item.get('title'), '(no title)')}**\n"
+            f"> {_as_text(item.get('repository_url')).replace('https://api.github.com/repos/', '')} | "
+            f"by {user_text} "
+            f"| {_as_text(item.get('comments'), '0')} comments | "
             f"updated {_as_text(item.get('updated_at'), '?')[:10]}\n\n"
             f"{_as_text(item.get('body'), '(no description)')[:500]}\n"
         )

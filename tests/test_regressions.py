@@ -447,6 +447,56 @@ class ExternalApiRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("(no description)", result)
 
+    async def test_github_issue_nullable_metadata_does_not_crash(self):
+        original = server.httpx.AsyncClient
+
+        class Resp:
+            status_code = 200
+            text = "{}"
+
+            def json(self):
+                return {
+                    "total_count": 1,
+                    "items": [
+                        {
+                            "number": None,
+                            "html_url": None,
+                            "state": None,
+                            "title": None,
+                            "repository_url": None,
+                            "user": None,
+                            "comments": None,
+                            "updated_at": None,
+                            "body": None,
+                            "labels": [{"name": None}],
+                        }
+                    ],
+                }
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def get(self, *_args, **_kwargs):
+                return Resp()
+
+        server.httpx.AsyncClient = Client
+        try:
+            result = await server.search_github_issues(query="x")
+        finally:
+            server.httpx.AsyncClient = original
+
+        self.assertIn("Issue #?", result)
+        self.assertIn("**(no title)**", result)
+        self.assertIn("by unknown", result)
+        self.assertIn("(no description)", result)
+
     async def test_github_issue_state_is_case_insensitive(self):
         original = server.httpx.AsyncClient
         urls = []
