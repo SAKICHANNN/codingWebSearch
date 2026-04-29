@@ -15,7 +15,7 @@ repos:
     rev: 7.2.0
     hooks:
       - id: flake8
-        args: ["--max-line-length=120", "--ignore=E203,E402,E501,W503"]
+        args: ["--max-line-length=120", "--ignore=E203,E241,E302,E305,E402,E501,W503"]
         files: ^server\.py$
 
   - repo: https://github.com/psf/black

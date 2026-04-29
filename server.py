@@ -488,7 +488,7 @@ async def _fetch(url: str, timeout: int, headers: dict | None = None) -> tuple[s
             if attempt < MAX_RETRIES:
                 await asyncio.sleep(_retry_sleep(attempt))
                 continue
-            return None, f"Network error after {MAX_RETRIES+1} attempts"
+            return None, f"Network error after {MAX_RETRIES + 1} attempts"
         except Exception as exc:
             return None, f"Fetch failed: {exc}"
         if resp.status_code == 429 and attempt < MAX_RETRIES:
@@ -674,8 +674,9 @@ _NO_KEY_MSGS = {
     "searxng": "Engine 'searxng' needs SEARXNG_URL. Set to your instance URL (e.g. http://localhost:8080).",
 }
 
-async def _search_with_engine(query, engine, max_results=10, region="wt-wt",
-                               safesearch="off", timelimit=None) -> list[dict]:
+async def _search_with_engine(
+    query, engine, max_results=10, region="wt-wt", safesearch="off", timelimit=None
+) -> list[dict]:
     if engine == "auto":
         return await _search_ddgs(query, region, safesearch, timelimit, max_results)
     if engine == "brave":
@@ -861,8 +862,8 @@ async def _do_search(
 
     if last_errors:
         raise SearchError(
-            "All search engines failed.\n" + "\n".join(last_errors[:3]) +
-            "\nTry engine='auto' or check API key configuration with list_engines()."
+            "All search engines failed.\n" + "\n".join(last_errors[:3])
+            + "\nTry engine='auto' or check API key configuration with list_engines()."
         )
 
     return f"No results found for '{query}'."
@@ -1095,7 +1096,7 @@ async def search_compare(
     query += " comparison"
 
     return await _do_search(
-        query=query, label=f"Compare", max_results=max_results,
+        query=query, label="Compare", max_results=max_results,
         engine=engine, region="wt-wt", safesearch="off", timelimit=None,
         query_category="compare", sort_by_authority=True,
     )
@@ -1431,7 +1432,7 @@ async def search_github_issues(
                     "  export GITHUB_TOKEN=ghp_xxxx  # or ghp_xxxx from github.com/settings/tokens"
                 )
             if resp.status_code == 422:
-                raise SearchError(f"GitHub search query invalid. Check repo name format (owner/repo).")
+                raise SearchError("GitHub search query invalid. Check repo name format (owner/repo).")
             if resp.status_code != 200:
                 raise SearchError(f"GitHub API HTTP {resp.status_code}")
             data = resp.json()
@@ -1451,7 +1452,7 @@ async def search_github_issues(
         state_icon = "🟢" if item["state"] == "open" else ("🟣" if item["state"] == "merged" else "🔴")
         labels_str = ""
         if item.get("labels"):
-            labels_str = " [" + ", ".join(l["name"] for l in item["labels"][:3]) + "]"
+            labels_str = " [" + ", ".join(lb["name"] for lb in item["labels"][:3]) + "]"
         lines.append(
             f"### {i}. [{item_type} #{item['number']}]({item['html_url']}) {state_icon}{labels_str}\n"
             f"**{item['title']}**\n"

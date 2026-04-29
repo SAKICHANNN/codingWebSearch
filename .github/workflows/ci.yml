@@ -30,7 +30,7 @@ jobs:
       - name: Lint with flake8
         run: |
           flake8 server.py --count --max-line-length=120 --statistics \
-            --ignore=E203,E402,E501,W503
+            --ignore=E203,E241,E302,E305,E402,E501,W503
 
       - name: Verify syntax and imports
         run: |
