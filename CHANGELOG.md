@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] — 2026-04-29
+
+### Added
+
+- **`search_crawl`** — Batch URL crawler. Crawl a list of URLs or an entire site
+  (follow same-domain links). All pages fetched in parallel via `asyncio.gather`.
+  Extracts readable content from each page with title and excerpt.
+- **Startup diagnostics** — Prints engine status, tool count, and missing optional
+  API keys to stderr at startup. Helps users verify configuration.
+- **Expanded domain lists** — Added 15+ docs domains (AWS, GCP, Azure, PostgreSQL,
+  MySQL, MongoDB), security advisory domains (NVD, CVE, OSV, Snyk, RustSec), 5
+  paper domains (ACL, JMLR, NeurIPS), 3 code forge domains.
+- **Expanded authority scores** — Added scores for cloud providers, security sites,
+  and additional language/framework docs.
+- **Pre-commit config** — `.pre-commit-config.yaml` with trailing-whitespace,
+  end-of-file-fixer, check-yaml, check-json, check-ast, flake8, black.
+- **Troubleshooting guide** — `TROUBLESHOOTING.md` with solutions for 12+ common
+  issues, diagnostic commands, and rate limit info.
+- **Configuration guide** — `CONFIGURING.md` with engine setup, Claude Desktop config
+  examples, performance tuning, and rate limit tables.
+
+### Changed
+
+- Tool count: 20→21 tools
+- Domain lists: docs (10→25), papers (8→13), repos (6→9), added advisory (6)
+- Authority scores: 23→35 entries
+- README updated with new tools and docs references
+
 ## [0.5.0] — 2026-04-29
 
 ### Added

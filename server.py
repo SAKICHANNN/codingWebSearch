@@ -100,17 +100,31 @@ _DOCS_DOMAINS = [
     "readthedocs.io", "docs.python.org", "developer.mozilla.org",
     "pypi.org", "npmjs.com", "crates.io", "pkg.go.dev",
     "learn.microsoft.com", "man7.org", "nodejs.org",
+    "doc.rust-lang.org", "golang.org/pkg", "ruby-doc.org",
+    "api.rubyonrails.org", "docs.djangoproject.com", "react.dev",
+    "vuejs.org", "angular.io", "kubernetes.io/docs",
+    "docker.com/docs", "terraform.io/docs", "ansible.com/docs",
+    "postgresql.org/docs", "mysql.com/docs", "mongodb.com/docs",
+]
+
+_ADVISORY_DOMAINS = [
+    "cve.mitre.org", "nvd.nist.gov", "osv.dev",
+    "github.com/advisories", "snyk.io/advisories",
+    "rustsec.org", "safetycli.com",
 ]
 
 _PAPER_DOMAINS = [
     "arxiv.org", "dl.acm.org", "scholar.google.com",
     "semanticscholar.org", "paperswithcode.com", "openreview.net",
-    "ieeexplore.ieee.org", "usenix.org",
+    "ieeexplore.ieee.org", "usenix.org", "researchgate.net",
+    "aclanthology.org", "jmlr.org", "neurips.cc",
+    "proceedings.mlr.press", "dl.acm.org/doi", "dlnext.acm.org",
 ]
 
 _GITHUB_DOMAINS = [
     "github.com", "gitlab.com", "bitbucket.org",
     "gitee.com", "sourceforge.net", "codeberg.org",
+    "git.sr.ht", "launchpad.net", "salsa.debian.org",
 ]
 
 # Source authority scoring — used to re-rank results for coding agents
@@ -132,7 +146,16 @@ _AUTHORITY_SCORES: dict[str, float] = {
     # Community
     "dev.to": 0.6, "medium.com": 0.55, "reddit.com": 0.5,
     # News
-    "news.ycombinator.com": 0.7,
+    "news.ycombinator.com": 0.7, "dev.to": 0.6, "medium.com": 0.55,
+    # Additional docs
+    "doc.rust-lang.org": 1.0, "react.dev": 1.0, "vuejs.org": 1.0,
+    "angular.io": 1.0, "docs.djangoproject.com": 1.0, "golang.org": 0.95,
+    # Cloud providers
+    "docs.aws.amazon.com": 0.95, "cloud.google.com": 0.95,
+    "learn.microsoft.com/en-us/azure": 0.95,
+    # Security
+    "nvd.nist.gov": 1.0, "cve.mitre.org": 1.0, "osv.dev": 0.95,
+    "github.com/advisories": 0.9, "snyk.io": 0.85,
 }
 
 ENV_BING_KEY = "BING_SEARCH_API_KEY"
@@ -1646,6 +1669,84 @@ async def search_rss(
     return "\n".join(lines)
 
 
+@mcp.tool(annotations=_READONLY_TOOL)
+async def search_crawl(
+    urls: str = "",
+    base_url: str = "",
+    max_pages: int = 10,
+    max_length_per_page: int = 3000,
+) -> str:
+    """Crawl multiple URLs or an entire site, extracting readable content from each page.
+    All URLs are fetched in parallel for speed. Use this for comprehensive research
+    across multiple sources or when you need to extract content from an entire site.
+
+    Args:
+        urls: Comma-separated or newline-separated list of URLs to crawl.
+        base_url: Alternatively, a single URL whose linked pages (same domain) to follow.
+        max_pages: Max pages to crawl (1-30 for URLs, 1-50 for base_url mode).
+        max_length_per_page: Max characters per page (default 3000).
+    """
+    target_urls = []
+    if urls.strip():
+        target_urls = [u.strip() for u in re.split(r'[,\n]+', urls.strip()) if u.strip()]
+        target_urls = target_urls[:min(len(target_urls), 30)]
+    elif base_url.strip():
+        # Crawl mode: fetch the base page, extract same-domain links
+        max_pages = min(max_pages, 50)
+        html, err = await _fetch(base_url.strip(), FETCH_TIMEOUT)
+        if err:
+            raise SearchError(f"Failed to fetch base URL: {err}")
+        soup = BeautifulSoup(html, "html.parser")
+        base_domain = urlparse(base_url.strip()).netloc
+        seen_links = {base_url.strip()}
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if href.startswith("/"):
+                parsed_base = urlparse(base_url.strip())
+                href = f"{parsed_base.scheme}://{parsed_base.netloc}{href}"
+            elif not href.startswith("http"):
+                continue
+            if urlparse(href).netloc == base_domain and href not in seen_links:
+                seen_links.add(href)
+                if len(target_urls) < max_pages - 1:
+                    target_urls.append(href)
+        target_urls.insert(0, base_url.strip())
+    else:
+        raise SearchError("Provide either 'urls' (comma-separated list) or 'base_url' (site to crawl).")
+
+    max_length_per_page = max(500, min(max_length_per_page, 10000))
+
+    # Parallel fetch all URLs
+    async def _crawl_one(url: str):
+        html, err = await _fetch(url, FETCH_TIMEOUT)
+        if err:
+            return (url, None, err)
+        text = await _extract_text(html)
+        title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+        title = title_match.group(1).strip() if title_match else url[:80]
+        excerpt = text[:max_length_per_page] if text else ""
+        if len(text or "") > max_length_per_page:
+            excerpt += f"\n\n> [... {len(text)} chars total ...]"
+        return (url, title, excerpt)
+
+    tasks = [_crawl_one(u) for u in target_urls[:max_pages]]
+    results = await asyncio.gather(*tasks)
+
+    t_start = time.time()
+    lines = [f"## Crawl Results: {len(results)} pages\n"]
+    success = 0
+    for url, title, content in results:
+        if content is None:
+            lines.append(f"### ❌ {url}\n> {title}\n")
+        else:
+            success += 1
+            lines.append(f"### [{success}] {title}\n> {url}\n\n{content}\n")
+
+    elapsed = (time.time() - t_start) * 1000
+    lines.insert(1, f"_{success}/{len(results)} pages fetched in {elapsed:.0f}ms_\n")
+    return "\n".join(lines)
+
+
 # ===========================================================================
 # Content Fetching
 # ===========================================================================
@@ -1790,7 +1891,7 @@ async def list_engines() -> str:
 | yahoo    | Yahoo via DDGS                    | Unlimited           | ✅ always   |
 | searxng  | SearXNG (self-hosted metasearch)  | **Unlimited**       | {searxng_status} |
 
-## Coding-Agent Tools (20 total)
+## Coding-Agent Tools (21 total)
 
 | Tool | Purpose |
 |------|---------|
@@ -1810,6 +1911,7 @@ async def list_engines() -> str:
 | `search_news` | **Tech news** — HN, TechCrunch, ArsTechnica, dev.to, time-filtered |
 | `search_tutorial` | **NEW** — Find tutorials by tech and skill level (beginner to advanced) |
 | `search_rss` | **NEW** — Fetch and parse RSS/Atom feeds by URL or topic search |
+| `search_crawl` | **NEW** — Batch crawl multiple URLs or entire sites in parallel |
 | `web_fetch` | Extract readable content from any URL, preserves code blocks |
 | `web_fetch_code` | Extract **only code blocks** from a URL with language detection |
 | `search_session` | Manage multi-turn search context across queries |
@@ -1873,7 +1975,26 @@ def resource_authority() -> str:
 # Entry point
 # ===========================================================================
 
+def _startup_diagnostics():
+    """Print startup info to stderr (not stdout — stdout is for JSON-RPC)."""
+    import sys as _sys
+    py_ver = f"{_sys.version_info.major}.{_sys.version_info.minor}.{_sys.version_info.micro}"
+    engines_configured = [
+        e for e, info in _ENGINE_INFO.items()
+        if info.get("key") is None or os.environ.get((info["key"].split("+")[0] if "+" in str(info.get("key", "")) else info.get("key", "")))
+    ]
+    _sys.stderr.write(f"[codingWebSearch v0.6.0] Python {py_ver} | "
+                      f"{len(engines_configured)}/{len(_ENGINE_INFO)} engines | "
+                      f"{len([n for n in dir() if n.startswith('search_') or n.startswith('web_') or n == 'list_engines'])} tools\n")
+    optional_keys = {ENV_BRAVE_KEY, ENV_GOOGLE_KEY, ENV_GOOGLE_CX, ENV_BING_KEY, ENV_SEARXNG_URL}
+    missing = [k for k in optional_keys if not os.environ.get(k)]
+    if missing:
+        _sys.stderr.write(f"[codingWebSearch] Optional: set {', '.join(missing)} for more engines\n")
+    _sys.stderr.flush()
+
+
 def main():
+    _startup_diagnostics()
     mcp.run()
 
 

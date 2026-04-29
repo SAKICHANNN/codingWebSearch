@@ -1,6 +1,39 @@
 # DevLog
 
-## v0.5.0 — 2026-04-29 (current)
+## v0.6.0 — 2026-04-29 (current)
+
+### New Features
+
+- **`search_crawl`** — Batch URL crawler. Two modes: (1) comma-separated URL list,
+  (2) base URL mode that follows same-domain links. Parallel fetch via asyncio.gather.
+  Extracts readable content with title and excerpt from each page.
+
+- **Startup diagnostics** — `_startup_diagnostics()` runs on server start, printing
+  engine status, tool count, Python version, and missing optional API keys to stderr.
+
+- **Expanded domain coverage**:
+  - Docs: +15 domains (AWS, GCP, Azure, PostgreSQL, MySQL, MongoDB, Rust, Go, Ruby)
+  - Papers: +5 domains (ACL Anthology, JMLR, NeurIPS, MLR Press, ACM DL Next)
+  - Code forges: +3 domains (sr.ht, Launchpad, Salsa)
+  - New: Advisory domains (NVD, CVE, OSV, Snyk, RustSec, GitHub Advisories)
+
+- **Expanded authority scores**: +12 entries for cloud providers, security sites,
+  framework docs.
+
+- **Documentation**:
+  - `TROUBLESHOOTING.md` — 12+ common issues with solutions and diagnostic commands
+  - `CONFIGURING.md` — Complete setup guide with engine config, Claude Desktop config
+    examples, performance tuning, rate limit tables
+
+- **Pre-commit hooks**: `.pre-commit-config.yaml` with flake8, black, and general
+  file checks.
+
+### Changed
+
+- Tool count: 21 (was 20)
+- Authority scores: 35 entries (was 23)
+
+## v0.5.0 — 2026-04-29
 
 ### New Features
 

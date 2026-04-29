@@ -3,7 +3,7 @@ version: "3.9"
 services:
   codingwebsearch:
     build: .
-    image: codingwebsearch:0.5.0
+    image: codingwebsearch:0.6.0
     container_name: codingwebsearch
     stdin_open: true
     environment:

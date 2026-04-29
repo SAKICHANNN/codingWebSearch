@@ -6,7 +6,7 @@
 [![Docker](https://img.shields.io/badge/Docker-supported-blue)](https://docs.docker.com/)
 
 **The ultimate open-source, locally-deployed web search MCP server for coding agents.**
-20 specialized tools, 7 search engines, SearXNG support, Docker, RSS, CVE checks, CI/CD.
+21 specialized tools, 7 search engines, SearXNG, batch crawling, RSS, CVE checks, Docker, CI/CD.
 Designed for programmers, researchers, and engineers. No API key required by default.
 
 ---
@@ -58,7 +58,7 @@ With Brave Search (recommended free upgrade):
 
 ---
 
-## Tools Reference (20 total)
+## Tools Reference (21 total)
 
 ### Core Search
 
@@ -91,6 +91,7 @@ With Brave Search (recommended free upgrade):
 | `search_tutorial` | Find tutorials by tech and skill level (beginner to advanced) |
 | `search_rss` | Fetch/parse RSS/Atom feeds by URL or topic search |
 | `web_fetch` | Extract readable content from any URL, preserves code blocks |
+| `search_crawl` | **NEW** — Batch crawl multiple URLs or entire site in parallel |
 | `web_fetch_code` | Extract only code blocks from a URL with language detection |
 
 ### Utility
@@ -193,6 +194,8 @@ docker-compose up
 
 ## Documentation
 
+- [CONFIGURING.md](CONFIGURING.md) — engine setup, API keys, Claude Desktop config
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — common issues and diagnostic commands
 - [CHANGELOG.md](CHANGELOG.md) — version history
 - [devlog.md](devlog.md) — detailed development log
 - [references.md](references.md) — competitive analysis and research sources
