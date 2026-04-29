@@ -4,6 +4,13 @@
 
 ### Regression Fixes
 
+- Fetch hardening: `_validate_url()` now rejects direct private/local IPs and
+  private DNS resolutions, while `_fetch()` handles redirects manually and
+  revalidates every redirect target before following it.
+- Error search preservation: `_optimize_query(..., "error")` falls back to the
+  original query if timestamp/hex/path stripping would erase the entire input.
+- Cache mutation defense: cache reads/writes now copy result dictionaries, and
+  Yahoo relabeling returns copied results instead of mutating DDGS results.
 - Search core compatibility: `_do_search()` now converts each engine coroutine into
   an explicit task before using `asyncio.wait`, avoiding runtime failures on newer
   Python versions.

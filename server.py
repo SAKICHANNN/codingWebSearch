@@ -1,12 +1,14 @@
 import asyncio
 import datetime
 import hashlib
+import ipaddress
 import json
 import os
 import re
+import socket
 import time
 from difflib import SequenceMatcher
-from urllib.parse import quote, quote_plus, urlparse
+from urllib.parse import quote, quote_plus, urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -75,6 +77,7 @@ MAX_RESULTS = 50
 DEFAULT_MAX_LENGTH = 12000
 CACHE_TTL = 300
 MAX_RETRIES = 2
+MAX_REDIRECTS = 5
 
 STRIP_TAGS = [
     "script", "style", "nav", "footer", "header", "aside",
@@ -210,13 +213,13 @@ def _cache_key(prefix: str, query: str, engine: str, **kw) -> str:
 def _cache_get(key: str) -> list[dict] | None:
     entry = _search_cache.get(key)
     if entry and time.time() - entry[0] < CACHE_TTL:
-        return entry[1]
+        return [r.copy() for r in entry[1]]
     if entry:
         del _search_cache[key]
     return None
 
 def _cache_set(key: str, results: list[dict]) -> None:
-    _search_cache[key] = (time.time(), results)
+    _search_cache[key] = (time.time(), [r.copy() for r in results])
     if len(_search_cache) > 200:
         stale = [k for k, v in _search_cache.items() if time.time() - v[0] >= CACHE_TTL]
         for k in stale:
@@ -325,12 +328,15 @@ def _optimize_query(query: str, category: str = "code") -> str:
     q = query.strip()
 
     if category == "error":
+        original_q = q
         # Strip timestamps, hex addresses, file paths with line numbers
         q = re.sub(r'\b0x[0-9a-fA-F]+\b', '', q)
         q = re.sub(r'[\/\w]+\.(py|js|ts|go|rs|java|cpp|c|h):\d+', '', q)
         q = re.sub(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}', '', q)
         q = re.sub(r'at\s+\w+\(.*?\)', '', q)
         q = re.sub(r'\s{2,}', ' ', q).strip()
+        if not q:
+            q = original_q
 
     if category == "api":
         # Ensure the query has clear API reference intent
@@ -420,6 +426,21 @@ def _format_links(query: str, results: list[dict], label: str, elapsed_ms: float
     return "\n".join(lines)
 
 
+def _is_blocked_address(ip: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any((
+        addr.is_loopback,
+        addr.is_private,
+        addr.is_link_local,
+        addr.is_multicast,
+        addr.is_reserved,
+        addr.is_unspecified,
+    ))
+
+
 def _validate_url(url: str) -> str | None:
     try:
         parsed = urlparse(url)
@@ -427,8 +448,21 @@ def _validate_url(url: str) -> str | None:
         return f"Invalid URL: {url}."
     if parsed.scheme not in ("http", "https"):
         return f"Unsupported protocol '{parsed.scheme}'."
-    if not parsed.netloc:
+    if not parsed.netloc or not parsed.hostname:
         return "URL has no hostname."
+    host = parsed.hostname
+    if _is_blocked_address(host):
+        return f"Blocked private or local address: {host}."
+    try:
+        resolved = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return f"Could not resolve hostname: {host}."
+    except OSError as exc:
+        return f"Could not validate hostname '{host}': {exc}."
+    for info in resolved:
+        resolved_ip = info[4][0]
+        if _is_blocked_address(resolved_ip):
+            return f"Blocked private or local address: {resolved_ip}."
     return None
 
 async def _extract_text(html: str) -> str:
@@ -477,10 +511,27 @@ async def _fetch(url: str, timeout: int, headers: dict | None = None) -> tuple[s
     for attempt in range(MAX_RETRIES + 1):
         try:
             async with httpx.AsyncClient(
-                timeout=httpx.Timeout(timeout), follow_redirects=True,
+                timeout=httpx.Timeout(timeout), follow_redirects=False,
                 headers=default_headers,
             ) as client:
-                resp = await client.get(url)
+                current_url = url
+                redirects = 0
+                while True:
+                    resp = await client.get(current_url)
+                    if resp.status_code in (301, 302, 303, 307, 308):
+                        location = getattr(resp, "headers", {}).get("location")
+                        if not location:
+                            return None, f"Redirect {resp.status_code} without Location"
+                        if redirects >= MAX_REDIRECTS:
+                            return None, f"Too many redirects (>{MAX_REDIRECTS})"
+                        next_url = urljoin(current_url, location)
+                        err = _validate_url(next_url)
+                        if err:
+                            return None, f"Redirect blocked: {err}"
+                        current_url = next_url
+                        redirects += 1
+                        continue
+                    break
         except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.ConnectError):
             if attempt < MAX_RETRIES:
                 await asyncio.sleep(_retry_sleep(attempt))
@@ -620,9 +671,7 @@ async def _search_baidu(query: str, max_results: int) -> list[dict]:
 
 async def _search_yahoo(query: str, max_results: int) -> list[dict]:
     results = await _search_ddgs(query, max_results=max_results)
-    for r in results:
-        r["engine"] = "yahoo"
-    return results
+    return [{**r, "engine": "yahoo"} for r in results]
 
 
 async def _search_searxng(query: str, max_results: int) -> list[dict]:

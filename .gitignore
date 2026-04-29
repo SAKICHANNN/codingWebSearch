@@ -24,6 +24,9 @@ env/
 .env
 .env.local
 
+# Internal dev docs
+BUGS.md
+
 # OS
 .DS_Store
 Thumbs.db

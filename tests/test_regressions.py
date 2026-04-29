@@ -149,6 +149,98 @@ class SearchCoreRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("3/7 engines", output)
         self.assertIn("21 tools", output)
 
+    def test_error_query_optimizer_preserves_all_noise_queries(self):
+        self.assertEqual(server._optimize_query("0x1234abcd", "error"), "0x1234abcd")
+        self.assertEqual(
+            server._optimize_query("2024-01-01T12:00:00", "error"),
+            "2024-01-01T12:00:00",
+        )
+
+    def test_url_validation_blocks_private_ip_literals(self):
+        for url in (
+            "http://127.0.0.1:8080/admin",
+            "http://10.0.0.1/",
+            "http://192.168.1.10/",
+            "http://169.254.169.254/metadata/",
+            "http://[::1]/",
+        ):
+            self.assertIn("Blocked private or local address", server._validate_url(url))
+
+    def test_url_validation_blocks_private_dns_resolution(self):
+        original = server.socket.getaddrinfo
+
+        def fake_getaddrinfo(*_args, **_kwargs):
+            return [(server.socket.AF_INET, server.socket.SOCK_STREAM, 0, "", ("127.0.0.1", 80))]
+
+        server.socket.getaddrinfo = fake_getaddrinfo
+        try:
+            err = server._validate_url("http://rebind.example/")
+        finally:
+            server.socket.getaddrinfo = original
+
+        self.assertIn("Blocked private or local address", err)
+
+    async def test_fetch_blocks_redirects_to_private_addresses(self):
+        original = server.httpx.AsyncClient
+        calls = []
+
+        class Resp:
+            def __init__(self, status_code, headers=None, text=""):
+                self.status_code = status_code
+                self.headers = headers or {}
+                self.text = text
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def get(self, url):
+                calls.append(url)
+                return Resp(302, {"location": "http://127.0.0.1/admin"})
+
+        server.httpx.AsyncClient = Client
+        try:
+            html, err = await server._fetch("https://93.184.216.34/start", timeout=1)
+        finally:
+            server.httpx.AsyncClient = original
+
+        self.assertIsNone(html)
+        self.assertIn("Redirect blocked", err)
+        self.assertEqual(calls, ["https://93.184.216.34/start"])
+
+    async def test_search_yahoo_does_not_mutate_source_results(self):
+        original = server._search_ddgs
+        shared = [{"title": "T", "href": "https://example.com", "body": "", "engine": "ddgs"}]
+
+        async def fake_search(*_args, **_kwargs):
+            return shared
+
+        server._search_ddgs = fake_search
+        try:
+            result = await server._search_yahoo("query", max_results=1)
+        finally:
+            server._search_ddgs = original
+
+        self.assertEqual(shared[0]["engine"], "ddgs")
+        self.assertEqual(result[0]["engine"], "yahoo")
+
+    def test_cache_get_returns_defensive_copies(self):
+        server._search_cache.clear()
+        server._cache_set("copy-test", [{"title": "T", "href": "https://example.com", "engine": "ddgs"}])
+
+        cached = server._cache_get("copy-test")
+        cached[0]["engine"] = "mutated"
+        cached_again = server._cache_get("copy-test")
+
+        self.assertEqual(cached_again[0]["engine"], "ddgs")
+        server._search_cache.clear()
+
 
 class FetchCodeRegressionTests(unittest.IsolatedAsyncioTestCase):
     async def test_web_fetch_code_truncation_keeps_code_block_structure(self):

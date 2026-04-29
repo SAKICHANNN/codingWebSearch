@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- URL fetches now block loopback, private, link-local, reserved, multicast, and
+  DNS-resolved private addresses, and redirects are followed only after each
+  target URL is revalidated.
+- Error-query optimization now preserves the original query when stripping stack
+  trace noise would otherwise produce an empty search.
+- Yahoo result relabeling now copies result dictionaries instead of mutating
+  DDGS results in place; cache reads and writes also use defensive copies.
 - Search core now wraps per-engine coroutines with `asyncio.create_task()` before
   passing them to `asyncio.wait`, fixing runtime failures on modern Python.
 - Engine selection now treats `engine="ALL"` the same as `engine="all"`.
