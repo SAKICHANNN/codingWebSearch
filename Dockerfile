@@ -15,6 +15,8 @@ COPY server.py .
 
 ENV PYTHONUNBUFFERED=1
 
-EXPOSE 8080
+RUN adduser --disabled-password --gecos "" appuser \
+    && chown -R appuser:appuser /app
+USER appuser
 
 ENTRYPOINT ["python", "server.py"]

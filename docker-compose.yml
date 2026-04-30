@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   codingwebsearch:
     build: .
@@ -13,8 +11,5 @@ services:
       # - GOOGLE_API_KEY=
       # - GOOGLE_CSE_ID=
       # - BING_SEARCH_API_KEY=
+      # - SEARXNG_URL=
       - SEARCH_ENGINES=auto
-    # For HTTP transport mode (optional):
-    # ports:
-    #   - "8080:8080"
-    restart: unless-stopped

@@ -4,6 +4,23 @@
 
 ### Regression Fixes
 
+- Medium-severity sweep: fixed the open medium bug tranche in `BUGS.md` by
+  tightening search engine selection, filter validation, timeout semantics,
+  cancellation cleanup, cache identity, result deduplication, and markdown-safe
+  output formatting.
+- Fetch/crawl/RSS hardening: fetches now reject credentialed/plaintext targets,
+  enforce response type and size limits, honor retry semantics, parse JSON,
+  preserve useful page structure, cap total output, and make crawl/RSS URL
+  resolution robust for base tags, relative paths, guid/id fallbacks, and Atom
+  alternate links.
+- Registry/API hardening: package, GitHub issue, and OSV tools now normalize and
+  validate selectors, preserve package identity where casing matters, avoid token
+  proxy leakage, support version-aware vulnerability checks, handle malformed
+  payloads, and expose API failures as `SearchError` instead of successful text.
+- Deployment/docs cleanup: dependency minimums are aligned, quick start installs
+  the console script, Docker runs as a non-root user, Compose no longer advertises
+  unsupported HTTP transport or restart looping, Docker publish has package write
+  permission, and `BUGS.md` is no longer ignored.
 - Fetch hardening: `_validate_url()` now rejects direct private/local IPs and
   private DNS resolutions, while `_fetch()` handles redirects manually and
   revalidates every redirect target before following it.

@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![MCP](https://img.shields.io/badge/MCP-1.0%2B-purple)](https://modelcontextprotocol.io/)
+[![MCP](https://img.shields.io/badge/MCP-1.27%2B-purple)](https://modelcontextprotocol.io/)
 [![Docker](https://img.shields.io/badge/Docker-supported-blue)](https://docs.docker.com/)
 
 **The ultimate open-source, locally-deployed web search MCP server for coding agents.**
@@ -18,7 +18,7 @@ Designed for programmers, researchers, and engineers. No API key required by def
 ```bash
 git clone https://github.com/SAKICHANNN/codingWebSearch.git
 cd codingWebSearch
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ### Docker

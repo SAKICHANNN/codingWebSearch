@@ -43,6 +43,22 @@ class SearchCoreRegressionTests(unittest.IsolatedAsyncioTestCase):
     def test_all_engine_name_is_case_insensitive(self):
         self.assertEqual(server._resolve_engines("ALL"), server._ENGINE_PRIORITY)
 
+    def test_unknown_engine_is_rejected(self):
+        with self.assertRaises(server.SearchError):
+            server._resolve_engines("not-a-real-engine")
+
+    def test_search_engines_env_does_not_override_explicit_engine(self):
+        original = os.environ.get("SEARCH_ENGINES")
+        os.environ["SEARCH_ENGINES"] = "auto"
+        try:
+            self.assertEqual(server._resolve_engines("bing"), ["bing"])
+            self.assertEqual(server._resolve_engines("auto"), ["auto"])
+        finally:
+            if original is None:
+                os.environ.pop("SEARCH_ENGINES", None)
+            else:
+                os.environ["SEARCH_ENGINES"] = original
+
     def test_runtime_status_output_is_gbk_encodable(self):
         str(server.SearchError("message", "recovery")).encode("gbk")
         asyncio.run(server.list_engines()).encode("gbk")
@@ -108,7 +124,8 @@ class SearchCoreRegressionTests(unittest.IsolatedAsyncioTestCase):
         os.environ[server.ENV_GOOGLE_KEY] = "present"
         os.environ.pop(server.ENV_GOOGLE_CX, None)
         try:
-            result = await server.web_search("google key regression", engine="google", max_results=1)
+            with self.assertRaises(server.SearchError) as cm:
+                await server.web_search("google key regression", engine="google", max_results=1)
         finally:
             if original_google_key is None:
                 os.environ.pop(server.ENV_GOOGLE_KEY, None)
@@ -119,7 +136,7 @@ class SearchCoreRegressionTests(unittest.IsolatedAsyncioTestCase):
             else:
                 os.environ[server.ENV_GOOGLE_CX] = original_google_cx
 
-        self.assertIn("GOOGLE_API_KEY + GOOGLE_CSE_ID", result)
+        self.assertIn("GOOGLE_API_KEY + GOOGLE_CSE_ID", str(cm.exception))
 
     def test_startup_diagnostics_counts_tools_and_complete_key_sets(self):
         optional_keys = [
@@ -215,17 +232,27 @@ class SearchCoreRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(calls, ["https://93.184.216.34/start"])
 
     async def test_search_yahoo_does_not_mutate_source_results(self):
-        original = server._search_ddgs
+        original = server.DDGS
         shared = [{"title": "T", "href": "https://example.com", "body": "", "engine": "ddgs"}]
 
-        async def fake_search(*_args, **_kwargs):
-            return shared
+        class FakeDDGS:
+            def __init__(self, *_args, **_kwargs):
+                pass
 
-        server._search_ddgs = fake_search
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                pass
+
+            def text(self, *_args, **_kwargs):
+                return shared
+
+        server.DDGS = FakeDDGS
         try:
             result = await server._search_yahoo("query", max_results=1)
         finally:
-            server._search_ddgs = original
+            server.DDGS = original
 
         self.assertEqual(shared[0]["engine"], "ddgs")
         self.assertEqual(result[0]["engine"], "yahoo")
@@ -256,14 +283,15 @@ class FetchCodeRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         server._fetch = fake_fetch
         try:
-            result = await server.web_fetch_code("https://example.com/code", max_length=80)
+            result = await server.web_fetch_code("https://example.com/code", max_length=220)
         finally:
             server._fetch = original
 
         self.assertIn("# Example - Code Blocks", result)
         self.assertIn("``` python", result)
         self.assertEqual(result.count("```") % 2, 0)
-        self.assertIn("truncated to 80 chars", result)
+        self.assertIn("truncated to 220 chars", result)
+        self.assertLessEqual(len(result), 220)
 
     async def test_search_crawl_elapsed_time_includes_fetch_work(self):
         original = server._fetch
@@ -295,8 +323,43 @@ class FetchCodeRegressionTests(unittest.IsolatedAsyncioTestCase):
         finally:
             server._fetch = original
 
-        self.assertIn("truncated to 0 chars", result)
-        self.assertNotIn("truncated to -1 chars", result)
+        self.assertEqual("", result)
+
+    async def test_web_fetch_parses_json_responses(self):
+        original = server._fetch
+
+        async def fake_fetch(*_args, **_kwargs):
+            return '{"ok": true, "items": [1, 2]}', None
+
+        server._fetch = fake_fetch
+        try:
+            result = await server.web_fetch("https://example.com/data.json", max_length=200)
+        finally:
+            server._fetch = original
+
+        self.assertIn('"ok": true', result)
+        self.assertIn('"items"', result)
+
+    async def test_search_crawl_keeps_commas_inside_urls(self):
+        original = server._fetch
+        fetched = []
+        html = "<html><title>Example</title><body><p>content</p></body></html>"
+
+        async def fake_fetch(url, *_args, **_kwargs):
+            fetched.append(url)
+            return html, None
+
+        server._fetch = fake_fetch
+        try:
+            result = await server.search_crawl(
+                urls="https://example.com/a,b?x=1, https://example.com/c",
+                max_pages=2,
+            )
+        finally:
+            server._fetch = original
+
+        self.assertIn("https://example.com/a,b?x=1", fetched)
+        self.assertIn("2/2 pages fetched", result)
 
 
 class ExternalApiRegressionTests(unittest.IsolatedAsyncioTestCase):
@@ -333,6 +396,35 @@ class ExternalApiRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("### npm: @types/node v1.0.0", result)
         self.assertIn("@types%2Fnode", urls[0])
 
+    async def test_search_package_explicit_registry_failure_raises(self):
+        original = server.httpx.AsyncClient
+
+        class Resp:
+            status_code = 404
+
+            def json(self):
+                return {}
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def get(self, *_args, **_kwargs):
+                return Resp()
+
+        server.httpx.AsyncClient = Client
+        try:
+            with self.assertRaises(server.SearchError):
+                await server.search_package("missing-package", registry="pypi")
+        finally:
+            server.httpx.AsyncClient = original
+
     async def test_search_package_rejects_empty_package_name(self):
         with self.assertRaises(server.SearchError):
             await server.search_package("   ", registry="pypi")
@@ -340,6 +432,10 @@ class ExternalApiRegressionTests(unittest.IsolatedAsyncioTestCase):
     async def test_search_security_rejects_empty_package_name(self):
         with self.assertRaises(server.SearchError):
             await server.search_security("   ", ecosystem="npm")
+
+    async def test_search_security_rejects_unknown_ecosystem(self):
+        with self.assertRaises(server.SearchError):
+            await server.search_security("pkg", ecosystem="unknown-eco")
 
     async def test_search_security_auto_is_case_insensitive(self):
         original = server.httpx.AsyncClient
@@ -537,7 +633,7 @@ class ExternalApiRegressionTests(unittest.IsolatedAsyncioTestCase):
         finally:
             server.httpx.AsyncClient = original
 
-        self.assertIn("(no description)", result)
+        self.assertIn("no description", result)
 
     async def test_github_issue_nullable_metadata_does_not_crash(self):
         original = server.httpx.AsyncClient
@@ -585,9 +681,9 @@ class ExternalApiRegressionTests(unittest.IsolatedAsyncioTestCase):
             server.httpx.AsyncClient = original
 
         self.assertIn("Issue #?", result)
-        self.assertIn("**(no title)**", result)
+        self.assertIn("no title", result)
         self.assertIn("by unknown", result)
-        self.assertIn("(no description)", result)
+        self.assertIn("no description", result)
 
     async def test_github_issue_state_is_case_insensitive(self):
         original = server.httpx.AsyncClient
@@ -623,6 +719,63 @@ class ExternalApiRegressionTests(unittest.IsolatedAsyncioTestCase):
         search_q = unquote(parse_qs(urlparse(urls[0]).query)["q"][0])
         self.assertIn("state:open", search_q)
 
+    async def test_github_issue_filter_only_repo_query_is_allowed(self):
+        original = server.httpx.AsyncClient
+        urls = []
+
+        class Resp:
+            status_code = 200
+            text = "{}"
+
+            def json(self):
+                return {"items": []}
+
+        class Client:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                pass
+
+            async def get(self, url, headers=None):
+                urls.append(url)
+                return Resp()
+
+        server.httpx.AsyncClient = Client
+        try:
+            await server.search_github_issues(repo="python/cpython", query="", state="open")
+        finally:
+            server.httpx.AsyncClient = original
+
+        search_q = unquote(parse_qs(urlparse(urls[0]).query)["q"][0])
+        self.assertIn("repo:python/cpython", search_q)
+        self.assertIn("state:open", search_q)
+
+    async def test_search_rss_resolves_relative_links_and_guid_fallback(self):
+        original = server._fetch
+        feed = """
+        <rss><channel><title>Feed</title>
+          <item><title>One</title><link>/posts/one</link><description><![CDATA[<b>Hello</b> world]]></description></item>
+          <item><title>Two</title><guid>/posts/two</guid></item>
+        </channel></rss>
+        """
+
+        async def fake_fetch(*_args, **_kwargs):
+            return feed, None
+
+        server._fetch = fake_fetch
+        try:
+            result = await server.search_rss(feed_url="https://example.com/feed.xml", max_results=2)
+        finally:
+            server._fetch = original
+
+        self.assertIn("https://example.com/posts/one", result)
+        self.assertIn("https://example.com/posts/two", result)
+        self.assertIn("Hello world", result)
+
     async def test_search_tutorial_level_is_case_insensitive(self):
         original = server._do_search
         captured = {}
@@ -646,11 +799,11 @@ class FormattingRegressionTests(unittest.TestCase):
         result = {"title": None, "href": None, "body": None, "engine": None}
         self.assertIn("No title", server._build_result(1, result))
         self.assertIn("(no snippet)", server._build_result(1, result))
-        self.assertIn("[No title]()", server._format_compact("q", [result], "Label"))
-        self.assertIn("1. ", server._format_links("q", [result], "Label"))
+        self.assertIn("No title (no URL)", server._format_compact("q", [result], "Label"))
+        self.assertIn("1. (no URL)", server._format_links("q", [result], "Label"))
 
     def test_duplicate_detection_handles_nullable_fields(self):
-        self.assertTrue(server._is_duplicate({"title": None, "href": None}, [{"title": None, "href": None}]))
+        self.assertFalse(server._is_duplicate({"title": None, "href": None}, [{"title": None, "href": None}]))
 
     def test_session_add_survives_missing_href(self):
         server._search_sessions.clear()

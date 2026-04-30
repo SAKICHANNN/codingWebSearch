@@ -1,4 +1,4 @@
-﻿# Bug Tracker
+# Bug Tracker
 
 ## Status Legend
 - 🔴 **open** — confirmed, not yet fixed
@@ -74,7 +74,8 @@
 
 
 ### BUG-004 [medium]: `_is_duplicate` false-positively matches results with missing/empty `href`
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_is_duplicate()` (~line 501)
 - **Discovered**: 2026-04-29, final audit round
@@ -95,7 +96,8 @@
   one non-empty URL for the URL-match branch.
 
 ### BUG-005 [medium]: `search_crawl` reports failed fetches as successful pages
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` → `_crawl_one()` (~line 1781)
 - **Discovered**: 2026-04-29, crawl/RSS/backend audit round
@@ -119,7 +121,8 @@
   instead of a normal result body.
 
 ### BUG-006 [medium]: `search_deep` URL extraction truncates URLs containing parentheses
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_deep()` (~line 1148)
 - **Discovered**: 2026-04-29, final audit round
@@ -142,7 +145,8 @@
   which uses `\S+` and doesn't have this issue.
 
 ### BUG-007 [medium]: `_source_authority` fails when URL has a non-standard port
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_source_authority()` (~line 246)
 - **Discovered**: 2026-04-29, final audit round
@@ -162,7 +166,8 @@
   `host = host.split(":")[0]`.
 
 ### BUG-008 [medium]: `search_crawl(base_url=...)` fetches the base page twice
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` (~lines 1752 and 1793)
 - **Discovered**: 2026-04-29, crawl/RSS/backend audit round
@@ -189,7 +194,8 @@
   already-fetched base page.
 
 ### BUG-009 [medium]: `search_crawl(max_pages=0/-1)` violates the documented minimum
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` (~line 1751 and ~line 1793)
 - **Discovered**: 2026-04-29, crawl/RSS/backend audit round
@@ -214,7 +220,8 @@
   building tasks, e.g. `max_pages = max(1, min(max_pages, limit))`.
 
 ### BUG-010 [medium]: `search_crawl` skips non-root relative links
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` → `_extract_links()` (~line 1763)
 - **Discovered**: 2026-04-29, crawl/RSS/backend audit round
@@ -238,7 +245,8 @@
   href)` before same-domain filtering.
 
 ### BUG-011 [medium]: `search_crawl` corrupts scheme-relative links
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` → `_extract_links()` (~line 1763)
 - **Discovered**: 2026-04-29, crawl/RSS/backend audit round
@@ -260,7 +268,8 @@
   scheme-relative URLs.
 
 ### BUG-012 [medium]: `search_rss` can lose RSS 2.0 `<link>text</link>` values
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_rss()` (~line 1683 and ~line 1705)
 - **Discovered**: 2026-04-29, crawl/RSS/backend audit round
@@ -288,7 +297,8 @@
   feed-specific parsing that preserves RSS `<link>` text nodes.
 
 ### BUG-013 [medium]: `search_rss` picks the first Atom link instead of `rel="alternate"`
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_rss()` (~line 1703)
 - **Discovered**: 2026-04-29, crawl/RSS/backend audit round
@@ -314,7 +324,8 @@
   without `rel`, then to the first link only if no better candidate exists.
 
 ### BUG-014 [medium]: `_search_yahoo` does not use Yahoo-specific DDGS options
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_search_yahoo()` (~line 621)
 - **Discovered**: 2026-04-29, crawl/RSS/backend audit round
@@ -342,7 +353,8 @@
   behavior.
 
 ### BUG-015 [medium]: `_do_search` overall timeout is reported as "No results found"
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_do_search()` (~line 821)
 - **Discovered**: 2026-04-29, crawl/RSS/backend audit round
@@ -370,7 +382,8 @@
   overall-timeout message.
 
 ### BUG-016 [medium]: Unknown search engines silently fall back to `auto`
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_resolve_engines()` (~line 699)
 - **Discovered**: 2026-04-29, extended audit round
@@ -387,7 +400,8 @@
   valid values.
 
 ### BUG-017 [medium]: `engine="all"` result order is nondeterministic
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_do_search()` (~line 831)
 - **Discovered**: 2026-04-29, extended audit round
@@ -403,7 +417,8 @@
   `engines_to_try` order or apply an explicit score-based merge.
 
 ### BUG-018 [medium]: Single-engine searches promise `max_results=1-50` but several engines hard-cap lower
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_search_brave_api()`, `_search_google_api()`,
   `_search_bing_api()`, `_search_baidu()` (~lines 529-586)
@@ -422,7 +437,8 @@
   or document and enforce engine-specific limits.
 
 ### BUG-019 [medium]: `max_length` does not cap total `web_fetch` / `web_fetch_code` output
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `web_fetch()` and `web_fetch_code()` (~lines 1815-1908)
 - **Discovered**: 2026-04-29, extended audit round
@@ -440,7 +456,8 @@
   the parameter to clarify that it only limits body text.
 
 ### BUG-020 [medium]: URL validation allows credentials and echoes them back to output
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_validate_url()` and `web_fetch()` (~lines 423 and 1838)
 - **Discovered**: 2026-04-29, extended audit round
@@ -457,7 +474,8 @@
   `parsed.password`, or redact credentials before fetch and display.
 
 ### BUG-021 [medium]: `_fetch` does not reject non-text content types
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_fetch()` (~line 466)
 - **Discovered**: 2026-04-29, extended audit round
@@ -472,7 +490,8 @@
   clear message such as `Unsupported content type: application/pdf`.
 
 ### BUG-022 [medium]: `_fetch` has no response-size guard before decoding
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_fetch()` (~line 466)
 - **Discovered**: 2026-04-29, extended audit round
@@ -487,7 +506,8 @@
   and streaming reads.
 
 ### BUG-023 [medium]: `search_deep` treats successful searches containing "No results" as empty
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_deep()` (~line 1143)
 - **Discovered**: 2026-04-29, extended audit round
@@ -506,7 +526,8 @@
   check `search_result.startswith("No results found for ")`.
 
 ### BUG-024 [medium]: `search_deep` never extracts code blocks produced by `_extract_text`
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_deep()` (~line 1166)
 - **Discovered**: 2026-04-29, extended audit round
@@ -527,7 +548,8 @@
   non-word language names, or standardize fence generation.
 
 ### BUG-025 [medium]: `search_deep` counts failed fetches as fetched sources
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_deep()` (~lines 1182-1208)
 - **Discovered**: 2026-04-29, extended audit round
@@ -542,7 +564,8 @@
 - **Fix direction**: Track successful and failed fetches separately.
 
 ### BUG-026 [medium]: `search_package` lowercases Go module paths
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_package()` (~line 1287)
 - **Discovered**: 2026-04-29, extended audit round
@@ -559,7 +582,8 @@
   apply registry-specific normalization only where it is valid.
 
 ### BUG-027 [medium]: `search_package(registry="auto")` returns the first registry hit, not the intended ecosystem
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_package()` (~lines 1293 and 1353)
 - **Discovered**: 2026-04-29, extended audit round
@@ -577,7 +601,8 @@
   registry matches, or ask callers to specify the registry when ambiguous.
 
 ### BUG-028 [medium]: `search_github_issues` cannot list a repository's issues without a query
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_github_issues()` (~line 1420)
 - **Discovered**: 2026-04-29, extended audit round
@@ -595,7 +620,8 @@
   filters are present.
 
 ### BUG-029 [medium]: `search_security(ecosystem="Crates.io")` sends the wrong ecosystem casing to OSV
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_security()` (~line 1521)
 - **Discovered**: 2026-04-29, extended audit round
@@ -613,7 +639,8 @@
   OSV ecosystem names.
 
 ### BUG-030 [medium]: `search_security` treats unknown ecosystems as real OSV ecosystems
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_security()` (~line 1536)
 - **Discovered**: 2026-04-29, extended audit round
@@ -629,7 +656,8 @@
 - **Fix direction**: Reject unknown ecosystems and list supported aliases.
 
 ### BUG-031 [medium]: `search_rss` does not resolve relative Atom/RSS links
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_rss()` (~line 1703)
 - **Discovered**: 2026-04-29, extended audit round
@@ -654,7 +682,8 @@
   rendering.
 
 ### BUG-032 [medium]: `_fetch` does not check response `Content-Type` (merged with BUG-052)
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_fetch()` (~line 466)
 - **Discovered**: 2026-04-29, deep audit rounds 4 and 6 (merged from previous BUG-033/054)
@@ -668,7 +697,8 @@
   non-text/* types with a clear error message.
 
 ### BUG-033 [medium]: `_fetch` has no maximum response size guard
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_fetch()` (~line 466)
 - **Discovered**: 2026-04-29, deep audit round 4 (overlaps with BUG-022)
@@ -680,7 +710,8 @@
   `Content-Length` exceeds maximum.
 
 ### BUG-034 [medium]: `SEARCH_ENGINES=all` does not expand to all engines
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_resolve_engines()` (~line 700)
 - **Discovered**: 2026-04-29, deep audit round 5
@@ -698,7 +729,8 @@
   `engine="all"` and expand to `_ENGINE_PRIORITY`.
 
 ### BUG-035 [medium]: Whitespace-only API key environment variables count as configured
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_required_keys_present()` (~line 674)
 - **Discovered**: 2026-04-29, deep audit round 5
@@ -714,7 +746,8 @@
 - **Fix direction**: Treat `not os.environ.get(key, "").strip()` as missing.
 
 ### BUG-036 [medium]: `_fetch` ignores `Retry-After` on HTTP 429
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_fetch()` (~line 491)
 - **Discovered**: 2026-04-29, deep audit round 5
@@ -726,7 +759,8 @@
   cap.
 
 ### BUG-037 [medium]: `_fetch` does not retry transient HTTP 5xx responses
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_fetch()` (~line 494)
 - **Discovered**: 2026-04-29, deep audit round 5
@@ -740,7 +774,8 @@
   error.
 
 ### BUG-038 [medium]: `search_crawl(urls=...)` splits valid URLs containing commas
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` (~line 1747)
 - **Discovered**: 2026-04-29, deep audit round 5
@@ -756,7 +791,8 @@
   parser with escaping rules.
 
 ### BUG-039 [medium]: `search_security(ecosystem=...)` does not strip whitespace
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_security()` (~line 1519)
 - **Discovered**: 2026-04-29, deep audit round 5
@@ -773,7 +809,8 @@
   API payload.
 
 ### BUG-040 [medium]: Explicit registry lookup failures silently fall back to web search
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_package()` (~line 1356)
 - **Discovered**: 2026-04-29, deep audit round 5
@@ -788,7 +825,8 @@
   include the fallback reason in the output.
 
 ### BUG-041 [medium]: `search_package` can crash on non-object JSON responses
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_package()` (~line 1316)
 - **Discovered**: 2026-04-29, deep audit round 5
@@ -804,7 +842,8 @@
 - **Fix direction**: Validate `isinstance(data, dict)` before accessing `.get()`.
 
 ### BUG-042 [medium]: `search_security` hides OSV API failures as missing data
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_security()` (~line 1555)
 - **Discovered**: 2026-04-29, deep audit round 5
@@ -818,7 +857,8 @@
   successful ecosystem query was completed.
 
 ### BUG-043 [medium]: `search_security` ignores OSV `CVSS_V4` and `CVSS_V2` severities
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_security()` (~line 1580)
 - **Discovered**: 2026-04-29, deep audit round 5
@@ -836,7 +876,8 @@
   severity entries.
 
 ### BUG-044 [medium]: Direct API engines ignore user region, SafeSearch, and freshness options
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_search_brave_api()`, `_search_google_api()`,
   `_search_bing_api()`, `_search_baidu()` (~lines 529-586)
@@ -859,7 +900,8 @@
   document per-engine limitations in tool output.
 
 ### BUG-045 [medium]: `_title_similar` returns 1.0 for two empty titles causing false dedup
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_title_similar()` and `_is_duplicate()`
 - **Discovered**: 2026-04-29, deep audit round 6
@@ -872,7 +914,8 @@
 - **Fix direction**: Short-circuit to 0.0 when both strings are empty.
 
 ### BUG-046 [medium]: SearXNG URL double `/search` path when `SEARXNG_URL` has path prefix
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_search_searxng()`
 - **Discovered**: 2026-04-29, deep audit round 6
@@ -884,7 +927,8 @@
 - **Fix direction**: Append `/search` only when path is empty or `/`.
 
 ### BUG-047 [medium]: "Needs API key" response cached; persists after key is set
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_do_search()` cache logic
 - **Discovered**: 2026-04-29, deep audit round 6
@@ -895,7 +939,8 @@
 - **Fix direction**: Skip caching for key-not-configured responses.
 
 ### BUG-048 [medium]: `search_rss` parses XML with `html.parser` losing namespace/CDATA info
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_rss()` → `_parse_feed()`
 - **Discovered**: 2026-04-29, deep audit round 6
@@ -907,7 +952,8 @@
 - **Fix direction**: Use `lxml-xml` or `xml` parser; fall back to `html.parser`.
 
 ### BUG-049 [medium]: `search_crawl` skips `./` and `../` relative paths (distinct from BUG-010)
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` → `_extract_links()`
 - **Discovered**: 2026-04-29, deep audit round 6
@@ -918,7 +964,8 @@
 - **Fix direction**: Use `urljoin(base_url, href)` for all link resolution.
 
 ### BUG-050 [medium]: `_cache_set` stores mutable reference — callers can corrupt cache
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_cache_set()`
 - **Discovered**: 2026-04-29, deep audit round 6
@@ -929,7 +976,8 @@
 - **Fix direction**: Store deep copy or document immutability requirement.
 
 ### BUG-051 [medium]: `search_deep` `asyncio.gather` without `return_exceptions=True` aborts all on one failure
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_deep()`
 - **Discovered**: 2026-04-29, deep audit round 6
@@ -944,7 +992,8 @@
 - **Severity**: medium
 
 ### BUG-053 [medium]: search_session(clear) is annotated as read-only and idempotent
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _READONLY_TOOL and search_session()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -954,7 +1003,8 @@
 - **Fix direction**: Use separate annotations or split view and clear tools.
 
 ### BUG-054 [medium]: Docker image runs the MCP server as root
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `Dockerfile`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -964,7 +1014,8 @@
 - **Fix direction**: Create an unprivileged user and set USER before ENTRYPOINT.
 
 ### BUG-055 [medium]: _fetch allows plaintext HTTP for arbitrary content fetches
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _validate_url()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -974,7 +1025,8 @@
 - **Fix direction**: Default to HTTPS-only with explicit opt-in for HTTP.
 
 ### BUG-056 [medium]: _fetch advertises JSON support but web_fetch cannot parse JSON
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _fetch(), _extract_text()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -984,7 +1036,8 @@
 - **Fix direction**: Remove JSON from Accept or add JSON pretty-print extraction.
 
 ### BUG-057 [medium]: _fetch error messages discard useful HTTP response bodies
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _fetch()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -994,7 +1047,8 @@
 - **Fix direction**: Include a short sanitized text excerpt for text responses.
 
 ### BUG-058 [medium]: _do_search cancels pending tasks without awaiting cancellation
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _do_search()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1004,7 +1058,8 @@
 - **Fix direction**: Await cancelled pending tasks before returning.
 
 ### BUG-059 [medium]: SEARCH_ENGINES overrides explicit per-call engine choices
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _resolve_engines()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1014,7 +1069,8 @@
 - **Fix direction**: Apply override only for engine="auto" or document it as absolute.
 
 ### BUG-060 [medium]: General search parameters are not validated before DDGS calls
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, web_search(), _do_search()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1024,7 +1080,8 @@
 - **Fix direction**: Validate region, safesearch, and timelimit centrally.
 
 ### BUG-061 [medium]: Generic transient engine exceptions are not retried
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _do_search()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1034,7 +1091,8 @@
 - **Fix direction**: Retry known transient httpx and JSON errors.
 
 ### BUG-062 [medium]: Direct API engines do not retry malformed JSON responses
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, direct API engine functions`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1044,7 +1102,8 @@
 - **Fix direction**: Convert JSON decode failures into retryable engine errors.
 
 ### BUG-063 [medium]: SearXNG ignores search filters
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _search_searxng()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1054,7 +1113,8 @@
 - **Fix direction**: Forward supported SearXNG safe-search, language, and time parameters.
 
 ### BUG-064 [medium]: SearXNG result parsing assumes every result is a dictionary
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _search_searxng()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1064,7 +1124,8 @@
 - **Fix direction**: Skip non-dict result items.
 
 ### BUG-065 [medium]: Baidu parser can return Baidu redirect URLs instead of destination URLs
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _search_baidu()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1074,7 +1135,8 @@
 - **Fix direction**: Resolve wrappers or label them as redirects.
 
 ### BUG-066 [medium]: Specialized search tools hardcode worldwide/off filters
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_code(), search_docs(), search_paper(), search_github()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1084,7 +1146,8 @@
 - **Fix direction**: Add optional region and safesearch parameters or document fixed behavior.
 
 ### BUG-067 [medium]: Search result snippets are not length-limited before formatting
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _build_result()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1094,7 +1157,8 @@
 - **Fix direction**: Truncate snippets before rendering.
 
 ### BUG-068 [medium]: Full result formatter allows Markdown injection from result title and body
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _build_result()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1104,7 +1168,8 @@
 - **Fix direction**: Escape title/body Markdown or render snippets in safe blocks.
 
 ### BUG-069 [medium]: _extract_text drops useful noscript content
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, STRIP_TAGS, _extract_text()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1114,7 +1179,8 @@
 - **Fix direction**: Preserve meaningful noscript text or strip only duplicates.
 
 ### BUG-070 [medium]: web_fetch discards all hyperlink destinations
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _extract_text()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1124,7 +1190,8 @@
 - **Fix direction**: Convert anchors to Markdown links before text extraction.
 
 ### BUG-071 [medium]: web_fetch flattens tables into ambiguous plain text
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _extract_text()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1134,7 +1201,8 @@
 - **Fix direction**: Convert simple tables to Markdown tables.
 
 ### BUG-072 [medium]: web_fetch has no meta-description fallback
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _extract_text(), web_fetch()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1144,7 +1212,8 @@
 - **Fix direction**: Fall back to meta/OpenGraph descriptions.
 
 ### BUG-073 [medium]: PyPI package names are not URL-encoded in direct lookup URLs
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_package()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1154,7 +1223,8 @@
 - **Fix direction**: Validate and URL-encode path components.
 
 ### BUG-074 [medium]: npm lookup fails for packages without a latest dist-tag
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_package()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1164,7 +1234,8 @@
 - **Fix direction**: Query package root and resolve dist-tags.latest.
 
 ### BUG-075 [medium]: Package version specifiers are sent as package names
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_package(), search_security()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1174,7 +1245,8 @@
 - **Fix direction**: Parse ecosystem-specific requirement syntax.
 
 ### BUG-076 [medium]: Package fallback search can include raw newlines and search operators
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_package() fallback`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1185,7 +1257,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Use validated normalized names in fallback queries.
 
 ### BUG-077 [medium]: GitHub issue state is lowercased but not stripped
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_github_issues()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1195,7 +1268,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Strip and validate state.
 
 ### BUG-078 [medium]: GitHub incomplete_results flag is ignored
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_github_issues()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1205,7 +1279,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Show a warning when incomplete_results is true.
 
 ### BUG-079 [medium]: GitHub issue body truncation can leave unclosed Markdown fences
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_github_issues()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1215,7 +1290,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Close unbalanced fences or sanitize body Markdown.
 
 ### BUG-080 [medium]: GitHub issue titles and bodies are rendered without Markdown escaping
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_github_issues()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1225,7 +1301,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Escape titles and sanitize body excerpts.
 
 ### BUG-081 [medium]: Whitespace-only GITHUB_TOKEN is sent as Authorization
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_github_issues()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1235,7 +1312,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Strip token and omit header if empty.
 
 ### BUG-082 [medium]: search_security cannot determine whether a specific installed version is affected
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_security()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1245,7 +1323,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Add optional version parameter and query OSV with it.
 
 ### BUG-083 [medium]: Withdrawn OSV vulnerabilities are displayed as active
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_security()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1255,7 +1334,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Hide or clearly label withdrawn records.
 
 ### BUG-084 [medium]: search_security can crash on malformed affected entries
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, _fixed_versions()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1265,7 +1345,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Validate nested item types.
 
 ### BUG-085 [medium]: search_security can crash on malformed severity entries
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_security()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1275,7 +1356,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Skip non-dict severity entries.
 
 ### BUG-086 [medium]: search_security mishandles string aliases
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_security()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1285,7 +1367,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Coerce strings to a single alias or require list.
 
 ### BUG-087 [medium]: search_security ignores database_specific severity
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_security()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1295,7 +1378,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Fall back to known database-specific severity fields.
 
 ### BUG-088 [medium]: RSS descriptions are truncated before escaped HTML is sanitized
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_rss()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1305,7 +1389,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Sanitize first, then truncate text.
 
 ### BUG-089 [medium]: RSS entries without link do not fall back to guid or id
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_rss()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1315,7 +1400,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Fallback to RSS guid and Atom id where appropriate.
 
 ### BUG-090 [medium]: search_crawl ignores robots.txt
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_crawl()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1325,7 +1411,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Respect robots.txt or document noncompliance.
 
 ### BUG-091 [medium]: search_crawl has no concurrency limit
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_crawl()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1335,7 +1422,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Add a semaphore limit.
 
 ### BUG-092 [medium]: search_crawl does not filter non-HTML assets
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_crawl()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1345,7 +1433,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Skip binary extensions and verify content type.
 
 ### BUG-093 [medium]: search_crawl ignores HTML base href
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py, search_crawl()`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1355,7 +1444,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Honor document base URL when present.
 
 ### BUG-094 [medium]: README quick-start install does not install the console script
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `README.md, pyproject.toml`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1365,7 +1455,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Use pip install -e . or equivalent.
 
 ### BUG-095 [medium]: README and pyproject dependency minimums disagree
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `README.md, requirements.txt, pyproject.toml`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1375,7 +1466,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Use one source of truth for constraints.
 
 ### BUG-096 [medium]: Troubleshooting minimum versions disagree with package metadata
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `TROUBLESHOOTING.md, pyproject.toml`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1385,7 +1477,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Align docs, requirements, and pyproject.
 
 ### BUG-097 [medium]: Docker Compose advertises optional HTTP transport that server does not implement
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `docker-compose.yml, server.py`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1395,7 +1488,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Remove comment or implement HTTP transport.
 
 ### BUG-098 [medium]: Docker Compose restart policy can loop a stdio MCP container
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `docker-compose.yml`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1405,7 +1499,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Remove restart for stdio mode or document client attachment.
 
 ### BUG-099 [medium]: Docker publish workflow may lack package write permissions
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `.github/workflows/docker-publish.yml`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1415,7 +1510,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Declare contents: read and packages: write.
 
 ### BUG-100 [medium]: BUGS.md is ignored by git
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `.gitignore, BUGS.md`
 - **Discovered**: 2026-04-29, deep audit round 7
@@ -1425,7 +1521,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Track BUGS.md or move persistent bugs to a tracked file.
 
 ### BUG-101 [medium]: `_is_duplicate` drops distinct pages with generic short titles
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_is_duplicate()` (~line 499)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1444,7 +1541,8 @@ site:evil.example" can reach fallback search query.
   or combine title similarity with host/path similarity before deduping.
 
 ### BUG-102 [medium]: Compact formatter renders unsafe upstream URLs as clickable markdown
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_format_compact()` (~line 393)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1461,7 +1559,8 @@ site:evil.example" can reach fallback search query.
   fall back to plain text for unsupported schemes.
 
 ### BUG-103 [medium]: Full formatter allows URL newlines to forge extra output lines
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_build_result()` (~line 353)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1477,7 +1576,8 @@ site:evil.example" can reach fallback search query.
   formatting, or render untrusted fields through a markdown-safe sanitizer.
 
 ### BUG-104 [medium]: Search cache is shared across API identities
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_do_search()` cache key construction (~line 748)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1495,7 +1595,8 @@ site:evil.example" can reach fallback search query.
   cache key or clear cache when relevant environment variables change.
 
 ### BUG-105 [medium]: Missing API keys are returned as successful tool results
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_do_search()` (~line 774)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1512,7 +1613,8 @@ site:evil.example" can reach fallback search query.
   failures and keep human-readable recovery hints in the exception message.
 
 ### BUG-106 [medium]: Unknown package registries are returned as successful results
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_package()` (~line 1298)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1529,7 +1631,8 @@ site:evil.example" can reach fallback search query.
   with the supported values.
 
 ### BUG-107 [medium]: One crawl-page extraction exception aborts the whole batch
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` (~line 1794)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1549,7 +1652,8 @@ site:evil.example" can reach fallback search query.
   gather exceptions and render them as failed page entries.
 
 ### BUG-108 [medium]: `web_fetch` leaks parser exceptions instead of `SearchError`
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `web_fetch()` (~line 1829)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1568,7 +1672,8 @@ site:evil.example" can reach fallback search query.
   parse page content: ...")`.
 
 ### BUG-109 [medium]: `web_fetch_code` leaks parser exceptions instead of `SearchError`
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `web_fetch_code()` (~line 1865)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1585,7 +1690,8 @@ site:evil.example" can reach fallback search query.
   failures to `SearchError`.
 
 ### BUG-110 [medium]: `search_rss` parser exceptions bypass RSS error handling
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_rss()` (~line 1646)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1602,7 +1708,8 @@ site:evil.example" can reach fallback search query.
   raise `SearchError` with the feed URL and parse failure.
 
 ### BUG-111 [medium]: `search_package(auto)` has no overall registry timeout
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_package()` (~line 1294)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1619,7 +1726,8 @@ site:evil.example" can reach fallback search query.
   with deterministic result selection.
 
 ### BUG-112 [medium]: `search_security(auto)` has no overall OSV timeout
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_security()` (~line 1532)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1636,7 +1744,8 @@ site:evil.example" can reach fallback search query.
   concurrently while preserving deterministic output order.
 
 ### BUG-113 [medium]: `search_security(auto)` reports cross-ecosystem vulnerabilities for same-name packages
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_security()` (~line 1532)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1653,7 +1762,8 @@ site:evil.example" can reach fallback search query.
   or add package-name heuristics only when confidence is high.
 
 ### BUG-114 [medium]: Multiple CVSS_V3 records overwrite each other in OSV output
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_security()` (~line 1580)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1672,7 +1782,8 @@ site:evil.example" can reach fallback search query.
   vector after parsing CVSS scores.
 
 ### BUG-115 [medium]: OSV alias truncation can hide the primary CVE identifier
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_security()` (~line 1577)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1689,7 +1800,8 @@ site:evil.example" can reach fallback search query.
   aliases up to a reasonable output limit.
 
 ### BUG-116 [medium]: GitHub issue search allows qualifier injection through `repo`
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_github_issues()` (~line 1432)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1706,7 +1818,8 @@ site:evil.example" can reach fallback search query.
   qualifier characters.
 
 ### BUG-117 [medium]: `search_deep` trusts formatted search output when selecting fetch URLs
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_deep()` (~line 1154)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1723,7 +1836,8 @@ site:evil.example" can reach fallback search query.
   them only after the fetch target list is selected.
 
 ### BUG-118 [medium]: `search_crawl` loses same-site links after canonical host redirects
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` (~line 1758)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1740,7 +1854,8 @@ site:evil.example" can reach fallback search query.
   host aliases before filtering links.
 
 ### BUG-119 [medium]: `search_crawl` treats default ports as different domains
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` (~line 1768)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1756,7 +1871,8 @@ site:evil.example" can reach fallback search query.
   tuples instead of raw netloc strings.
 
 ### BUG-120 [medium]: HTTP clients trust environment proxies while sending API tokens
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `httpx.AsyncClient(...)` calls (~lines 534, 574, 1447)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1774,7 +1890,8 @@ site:evil.example" can reach fallback search query.
   document proxy behavior and provide an explicit opt-in.
 
 ### BUG-121 [medium]: `_optimize_query("error")` non-greedy regex leaves dangling parentheses
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_optimize_query()` (~line 332)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1788,7 +1905,8 @@ site:evil.example" can reach fallback search query.
   without trying to match the full call expression.
 
 ### BUG-122 [medium]: `search_docs` missing `timelimit` parameter - inconsistent with sibling tools
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_docs()` (~line 931)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1801,7 +1919,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Add `timelimit: str | None = None` parameter to `search_docs`.
 
 ### BUG-123 [medium]: `_source_freshness` relative-time indicators are English-only
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_source_freshness()` (~line 278)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1814,7 +1933,8 @@ site:evil.example" can reach fallback search query.
   for non-English snippets.
 
 ### BUG-124 [medium]: `_relevance_score` keyword extraction excludes non-ASCII scripts
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_relevance_score()` (~line 295)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1827,7 +1947,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Use `\w+` with Unicode flag (`re.UNICODE`) or a broader character class.
 
 ### BUG-125 [medium]: `_format_compact` produces empty-link markdown when title value is empty string
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_format_compact()` (~line 402)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1841,7 +1962,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Treat empty-string title the same as missing: use "No title" default.
 
 ### BUG-126 [medium]: `search_deep` code block regex mismatches `_extract_text` fence format
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_deep()` (~line 1174) vs `_extract_text()` (~line 450)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1855,7 +1977,8 @@ site:evil.example" can reach fallback search query.
   `_extract_text` to omit the space before the language name.
 
 ### BUG-127 [medium]: `search_deep` code dedup discards cross-source frequency signal
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_deep()` (~line 1207)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1868,7 +1991,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Track frequency alongside uniqueness: show "Pattern X (found in 3/3 sources)."
 
 ### BUG-128 [medium]: `search_deep` coverage metric includes failed fetches in success count
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_deep()` (~line 1184)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1882,7 +2006,8 @@ site:evil.example" can reach fallback search query.
   Report "fetched 1/3 pages (2 errors)."
 
 ### BUG-129 [medium]: `search_similar_repos` appends "github repository" even though already domain-scoped
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_similar_repos()` (~line 1255)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1895,7 +2020,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Remove the " github repository" suffix when domain scoping is sufficient.
 
 ### BUG-130 [medium]: `search_package(auto)` registry order favors Python ecosystem
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_package()` (~line 1294)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1909,7 +2035,8 @@ site:evil.example" can reach fallback search query.
   heuristics (capitalization, `@scope/` prefix, common patterns) to prioritize.
 
 ### BUG-131 [medium]: `search_news` duplicates "news" in default-topic queries
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_news()` (~line 1390)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1922,7 +2049,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Only append " news" if the query does not already contain it.
 
 ### BUG-132 [medium]: `_check_rate_limit` can return "Wait 0s" while rejecting the request
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_check_rate_limit()` (~line 50)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1935,7 +2063,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Use `math.ceil()` and clamp to at least 1 second: `max(1, ceil(...))`.
 
 ### BUG-133 [medium]: `_ENGINE_PRIORITY` places self-hosted SearXNG last
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_ENGINE_PRIORITY` (~line 665)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1949,7 +2078,8 @@ site:evil.example" can reach fallback search query.
   `SEARCH_ENGINES` env var fully control priority (it already does - just change default).
 
 ### BUG-134 [medium]: `_extract_text` strips `<aside>` - loses supplementary content
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `STRIP_TAGS` (~line 79) and `_extract_text()` (~line 454)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1963,7 +2093,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Remove `aside` from `STRIP_TAGS` and treat it as content-bearing.
 
 ### BUG-135 [medium]: `_search_ddgs` passes unvalidated `safesearch` to DDGS
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_search_ddgs()` (~line 513)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1976,7 +2107,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Validate `safesearch` before calling DDGS; reject invalid values.
 
 ### BUG-136 [medium]: `_search_baidu` CSS selector depends on build-specific hash suffix
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_search_baidu()` -> `_parse_baidu()` (~line 605)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -1990,7 +2122,8 @@ site:evil.example" can reach fallback search query.
   positional/structural selectors (e.g., `.c-container .c-abstract`).
 
 ### BUG-137 [medium]: `search_github_issues` blocks valid filter-only queries
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_github_issues()` (~line 1420)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2004,7 +2137,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Require non-empty query only when no other filters are present.
 
 ### BUG-138 [medium]: `_format_compact` and `_format_links` skip authority-based sorting
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_do_search()` cache/fresh branches (~line 763, ~line 860)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2019,7 +2153,8 @@ site:evil.example" can reach fallback search query.
   format function, not only inside `_format_results`.
 
 ### BUG-139 [medium]: `_relevance_score` penalizes longer, more specific queries
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_relevance_score()` (~line 300)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2034,7 +2169,8 @@ site:evil.example" can reach fallback search query.
   to cap the denominator and avoid penalizing specificity.
 
 ### BUG-140 [medium]: `search_tutorial` hardcodes `timelimit="y"` - users cannot override
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_tutorial()` (~line 1638)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2047,7 +2183,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Add `timelimit` parameter with default `"y"` for backward compatibility.
 
 ### BUG-141 [medium]: `_fetch` does not catch `httpx.TooManyRedirects`
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_fetch()` (~line 484)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2061,7 +2198,8 @@ site:evil.example" can reach fallback search query.
   with a clear error message.
 
 ### BUG-142 [medium]: `search_error` auto-generated session IDs prevent session sharing
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_error()` (~line 1044)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2075,7 +2213,8 @@ site:evil.example" can reach fallback search query.
   explicit `session_id` is given, allowing cross-query context to accumulate.
 
 ### BUG-143 [medium]: `search_crawl` same-domain check is port-sensitive for default ports
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_crawl()` -> `_extract_links()` (~line 1768)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2089,7 +2228,8 @@ site:evil.example" can reach fallback search query.
   https, 80 for http) from both netloc values.
 
 ### BUG-144 [medium]: `search_package` crates.io version display shows "?" for pre-release-only crates
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_package()` (~line 1341)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2104,7 +2244,8 @@ site:evil.example" can reach fallback search query.
   or check for `description` presence to confirm crate existence.
 
 ### BUG-145 [medium]: `list_engines` hardcodes tool count as static text
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `list_engines()` (~line 1961)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2120,7 +2261,8 @@ site:evil.example" can reach fallback search query.
   server's registered tool list.
 
 ### BUG-146 [medium]: `search_rss` topic search uses first URL without verifying it is a feed
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_rss()` (~line 1671)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2135,7 +2277,8 @@ site:evil.example" can reach fallback search query.
   or `application/atom+xml` Content-Type before full fetch.
 
 ### BUG-147 [medium]: `search_security` auto mode queries all ecosystems even after finding vulns
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `search_security()` (~line 1553)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2148,7 +2291,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Stop after the first ecosystem that returns vulnerabilities.
 
 ### BUG-148 [medium]: Cached search results lack engine label and elapsed metadata
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_do_search()` cache branch (~line 760)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2162,7 +2306,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Include engine label and "(cached)" indicator in cached response.
 
 ### BUG-149 [medium]: `_format_results` header markdown breaks when query contains underscores
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_format_results()` (~line 380)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -2175,7 +2320,8 @@ site:evil.example" can reach fallback search query.
 - **Fix direction**: Escape `_` and `*` in query text before markdown interpolation.
 
 ### BUG-150 [medium]: `_is_duplicate` title check is 85% threshold even when URLs differ completely
-- **Status**: 🔴 open
+- **Status**: 🟢 fixed
+- **Fixed**: Resolved in the 2026-04-30 medium-severity sweep; see CHANGELOG.md, devlog.md, and regression tests for coverage.
 - **Severity**: medium
 - **File**: `server.py`, `_is_duplicate()` (~line 505)
 - **Discovered**: 2026-04-30, medium-only audit round
@@ -3788,9 +3934,9 @@ site:evil.example" can reach fallback search query.
 
 | Status | Count |
 |--------|-------|
-| 🔴 open | 266 |
+| 🔴 open | 120 |
 | 🟡 in progress | 0 |
 | ⚪ merged | 1 |
 | ⚪ wontfix | 1 |
-| 🟢 fixed | 9 |
+| 🟢 fixed | 155 |
 | **Total** | **277** |

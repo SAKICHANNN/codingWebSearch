@@ -6,6 +6,26 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Medium-severity sweep: search engine resolution now rejects unknown engines,
+  honors explicit per-call engine choices over `SEARCH_ENGINES`, expands
+  `SEARCH_ENGINES=all`, validates search filters, awaits cancelled engine tasks,
+  and reports true overall timeouts instead of "No results".
+- Fetching and extraction now reject credentialed/plaintext URLs, enforce
+  content-type and response-size limits, retry 429/5xx responses, parse JSON
+  responses in `web_fetch`, preserve links/tables/meta text, and cap total
+  fetch output length.
+- Crawl and RSS tools now handle relative, scheme-relative, `./`/`../`, base-href,
+  guid/id, and Atom alternate links; crawl avoids duplicate base fetches, limits
+  concurrency, filters non-HTML assets, respects robots.txt where available, and
+  reports failed pages separately.
+- Package, GitHub issue, and OSV lookups now normalize selectors, reject unknown
+  registries/ecosystems/states, avoid environment proxy use with tokens, preserve
+  Go module casing, support version-aware OSV queries, handle malformed API
+  payloads, and escape rendered Markdown.
+- Deployment/docs now install via `pip install -e .`, align dependency minimums,
+  run the Docker image as a non-root user, remove unsupported Compose HTTP
+  transport/restart hints, grant Docker publish package permissions, and keep
+  `BUGS.md` tracked by git.
 - URL fetches now block loopback, private, link-local, reserved, multicast, and
   DNS-resolved private addresses, and redirects are followed only after each
   target URL is revalidated.
