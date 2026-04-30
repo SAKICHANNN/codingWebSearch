@@ -4,9 +4,22 @@ import io
 import os
 import re
 import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, unquote, urlparse
 
 import server
+
+
+def _mock_httpx_client(html: str):
+    """Create a mock httpx.AsyncClient that returns *html* for any GET."""
+    mock_client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.text = html
+    mock_client.get = AsyncMock(return_value=mock_resp)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    return mock_client
 
 
 class SearchCoreRegressionTests(unittest.IsolatedAsyncioTestCase):
@@ -267,6 +280,163 @@ class SearchCoreRegressionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(cached_again[0]["engine"], "ddgs")
         server._search_cache.clear()
+
+    # ── Baidu parser + engine fallback tests ──────────────────────────
+
+    async def test_baidu_parse_with_modern_html_structure(self):
+        """_search_baidu should parse current Baidu SERP HTML patterns."""
+        html = """<html><body>
+        <div class="result c-container" id="1">
+          <h3 class="t"><a href="https://example.com/page1" target="_blank">Title One</a></h3>
+          <div class="c-abstract">Snippet one content</div>
+        </div>
+        <div data-log='{"result":"2"}' class="c-container">
+          <h3><a href="https://example.org/page2" data-url="https://real.url/page2">Title Two</a></h3>
+          <span class="content-right_abc123">Snippet two</span>
+        </div>
+        <div class="result-op c-container">
+          <h3><a href="https://example.net/page3" mu="https://real.mu/page3">Title Three</a></h3>
+          <div class="c-abstract">Snippet three</div>
+        </div>
+        </body></html>"""
+
+        with patch("server.httpx.AsyncClient", return_value=_mock_httpx_client(html)):
+            results = await server._search_baidu("test query", max_results=5)
+
+        self.assertEqual(len(results), 3)
+        titles = [r["title"] for r in results]
+        self.assertIn("Title One", titles)
+        self.assertIn("Title Two", titles)
+        self.assertIn("Title Three", titles)
+        self.assertTrue(any("real.url" in r["href"] for r in results))
+
+    async def test_baidu_parse_with_structural_fallback(self):
+        """When CSS selectors miss, structural fallback finds h3 > a[href^=http]."""
+        html = """<html><body>
+        <div class="new-result-wrapper_xyz">
+          <h3><a href="https://example.com/1">Structural Title 1</a></h3>
+          <div class="new-snippet_abc">Snippet 1</div>
+        </div>
+        <div class="new-result-wrapper_xyz">
+          <h3><a href="https://example.com/2">Structural Title 2</a></h3>
+          <div class="new-snippet_abc">Snippet 2</div>
+        </div>
+        </body></html>"""
+
+        with patch("server.httpx.AsyncClient", return_value=_mock_httpx_client(html)):
+            results = await server._search_baidu("test", max_results=5)
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["title"], "Structural Title 1")
+        self.assertEqual(results[1]["title"], "Structural Title 2")
+
+    async def test_baidu_captcha_detection(self):
+        """_search_baidu should detect CAPTCHA pages and raise early."""
+        captcha_html = """<html><body>
+        <div>百度安全验证</div>
+        <div id="captcha">请完成验证</div>
+        </body></html>"""
+
+        with patch("server.httpx.AsyncClient", return_value=_mock_httpx_client(captcha_html)):
+            with self.assertRaises(server.DDGSException) as cm:
+                await server._search_baidu("test", max_results=5)
+            self.assertIn("CAPTCHA", str(cm.exception))
+
+    async def test_baidu_no_parseable_results_diagnostics(self):
+        """Zero results writes HTML preview to stderr, then raises."""
+        html = "<html><body><p>No results here</p></body></html>"
+
+        with patch("server.httpx.AsyncClient", return_value=_mock_httpx_client(html)):
+            with self.assertRaises(server.DDGSException) as cm:
+                await server._search_baidu("obscure-query-xyz", max_results=5)
+            self.assertIn("no parseable results", str(cm.exception))
+
+    async def test_auto_fallback_to_baidu_when_ddgs_fails(self):
+        """When engine='auto' and DDGS fails, Baidu should be tried."""
+        original_ddgs = server._search_ddgs
+        original_baidu = server._search_baidu
+
+        async def failing_ddgs(*_args, **_kwargs):
+            raise server.DDGSException("DDGS timeout from China")
+
+        async def succeeding_baidu(*_args, **_kwargs):
+            return [{
+                "title": "Baidu Result", "href": "https://example.com/baidu",
+                "body": "Baidu body", "engine": "baidu", "_authority": 0.4,
+            }]
+
+        server._search_ddgs = failing_ddgs
+        server._search_baidu = succeeding_baidu
+        try:
+            result = await server._search_with_engine("test query", "auto", max_results=5)
+        finally:
+            server._search_ddgs = original_ddgs
+            server._search_baidu = original_baidu
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["engine"], "baidu")
+
+    async def test_auto_fallback_raises_when_both_fail(self):
+        """When both DDGS and Baidu fail, a combined error is raised."""
+        original_ddgs = server._search_ddgs
+        original_baidu = server._search_baidu
+
+        async def failing_ddgs(*_args, **_kwargs):
+            raise server.DDGSException("DDGS timeout")
+
+        async def failing_baidu(*_args, **_kwargs):
+            raise server.DDGSException("Baidu CAPTCHA")
+
+        server._search_ddgs = failing_ddgs
+        server._search_baidu = failing_baidu
+        try:
+            with self.assertRaises(server.DDGSException) as cm:
+                await server._search_with_engine("test", "auto", max_results=5)
+            error_text = str(cm.exception)
+            self.assertIn("DuckDuckGo", error_text)
+            self.assertIn("Baidu", error_text)
+        finally:
+            server._search_ddgs = original_ddgs
+            server._search_baidu = original_baidu
+
+    async def test_auto_does_not_fallback_on_successful_ddgs(self):
+        """When DDGS succeeds, Baidu fallback should not be invoked."""
+        original_ddgs = server._search_ddgs
+        original_baidu = server._search_baidu
+        baidu_called = False
+
+        async def succeeding_ddgs(*_args, **_kwargs):
+            return [{
+                "title": "DDGS Result", "href": "https://example.com/ddgs",
+                "body": "body", "engine": "ddgs",
+            }]
+
+        async def should_not_be_called(*_args, **_kwargs):
+            nonlocal baidu_called
+            baidu_called = True
+            return []
+
+        server._search_ddgs = succeeding_ddgs
+        server._search_baidu = should_not_be_called
+        try:
+            result = await server._search_with_engine("test", "auto", max_results=5)
+        finally:
+            server._search_ddgs = original_ddgs
+            server._search_baidu = original_baidu
+
+        self.assertFalse(baidu_called)
+        self.assertEqual(result[0]["engine"], "ddgs")
+
+    async def test_baidu_rate_limit_enforced(self):
+        """Baidu should respect rate limiting like other free engines."""
+        server._RATE_LIMIT_TRACKER.clear()
+        for _ in range(10):
+            server._check_rate_limit("baidu")
+        limit_err = server._check_rate_limit("baidu")
+        self.assertIsNotNone(limit_err)
+        self.assertIn("Rate limit", limit_err)
+        self.assertIn("baidu", limit_err.lower())
+        server._RATE_LIMIT_TRACKER.clear()
 
 
 class FetchCodeRegressionTests(unittest.IsolatedAsyncioTestCase):

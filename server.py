@@ -930,29 +930,86 @@ async def _search_bing_api(
         for i in data.get("webPages", {}).get("value", [])[:max_results]
     ]
 
+def _is_baidu_captcha(html: str) -> bool:
+    """Check if Baidu returned a CAPTCHA or blocking page instead of results."""
+    indicators = [
+        "captcha", "verify", "antispider", "blocked",
+        "百度安全验证", "请输入验证码",
+    ]
+    html_lower = html.lower()
+    for indicator in indicators:
+        if indicator.lower() in html_lower:
+            return True
+    return False
+
+
 async def _search_baidu(query: str, max_results: int) -> list[dict]:
-    url = f"https://www.baidu.com/s?wd={quote_plus(query)}&rn={min(max_results, 20)}"
-    html, err = await _fetch(url, SEARCH_TIMEOUT)
-    if err:
-        raise DDGSException(f"Baidu: {err}")
+    """Search Baidu with real cookie acquisition from homepage pre-visit."""
+    search_url = f"https://www.baidu.com/s?wd={quote_plus(query)}&rn={min(max_results, 20)}"
+    _validate_url(search_url)
+
+    baidu_headers = {
+        "User-Agent": USER_AGENT,
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    }
+
+    async with httpx.AsyncClient(
+        timeout=SEARCH_TIMEOUT, follow_redirects=True, trust_env=False,
+    ) as client:
+        # Acquire fresh BAIDUID cookie by visiting the homepage first
+        try:
+            await client.get("https://www.baidu.com/", headers=baidu_headers)
+        except Exception:
+            pass  # homepage pre-visit is best-effort
+
+        try:
+            resp = await client.get(search_url, headers=baidu_headers)
+            if resp.status_code != 200:
+                raise DDGSException(f"Baidu HTTP {resp.status_code}")
+            html = resp.text
+        except DDGSException:
+            raise
+        except Exception as exc:
+            raise DDGSException(f"Baidu: {exc}")
+
+    if _is_baidu_captcha(html):
+        raise DDGSException(
+            "Baidu returned a CAPTCHA page. "
+            "Try again later, use engine='auto', or configure a different engine."
+        )
 
     def _parse_baidu():
         soup = BeautifulSoup(html, "html.parser")
         results = []
-        for container in soup.select("div.result, div.c-container, div.c-result, div[srcid]"):
+
+        # Strategy 1: Targeted CSS selectors covering current and legacy Baidu SERP patterns
+        for container in soup.select(
+            "div.result.c-container, "
+            "div[data-log*=result], "
+            "div.result-op.c-container, "
+            "div.result, "
+            "div.c-container, "
+            "div.c-result, "
+            "div[srcid]"
+        ):
             if len(results) >= max_results:
                 break
             title_el = container.find("h3")
-            link_el = container.find("a", href=True)
+            link_el = container.find("a", href=True) if title_el else None
             if not title_el or not link_el:
                 continue
-            # Try to extract real URL from Baidu's redirect wrapper
             real_href = link_el.get("data-url") or link_el.get("mu") or link_el["href"]
             parsed_href = urlparse(real_href)
             if _normalize_host(parsed_href.hostname or "").endswith("baidu.com") and parsed_href.path.startswith("/link"):
                 continue
-            snippet_el = container.select_one(
-                "div.c-abstract, span.c-font-normal, div.c-span-last, span[class*='content-right']"
+            snippet_el = (
+                container.select_one("div.c-abstract")
+                or container.select_one("span.c-font-normal")
+                or container.select_one("div.c-span-last")
+                or container.select_one("span[class*=content-right]")
+                or container.select_one("div[class*=abstract]")
+                or container.select_one("div[class*=summary]")
+                or container.select_one("span[class*=abstract]")
             )
             results.append({
                 "title": title_el.get_text(strip=True),
@@ -961,10 +1018,47 @@ async def _search_baidu(query: str, max_results: int) -> list[dict]:
                 "engine": "baidu",
                 "_authority": _source_authority(real_href),
             })
+
+        # Strategy 2: Structural fallback — find any div with h3 > a[href^=http]
+        if not results:
+            for container in soup.find_all("div"):
+                if len(results) >= max_results:
+                    break
+                h3 = container.find("h3")
+                if not h3:
+                    continue
+                link = h3.find("a", href=True)
+                if not link:
+                    continue
+                href = link.get("href", "")
+                if not href.startswith("http"):
+                    continue
+                text_len = len(container.get_text(strip=True))
+                if text_len < 10 or text_len > 2000:
+                    continue
+                real_href = link.get("data-url") or link.get("mu") or href
+                parsed_href = urlparse(real_href)
+                if _normalize_host(parsed_href.hostname or "").endswith("baidu.com") and parsed_href.path.startswith("/link"):
+                    continue
+                snippet_el = container.find("div") or container.find("span")
+                results.append({
+                    "title": h3.get_text(strip=True),
+                    "href": real_href,
+                    "body": (snippet_el.get_text(strip=True) if snippet_el else "")[:500],
+                    "engine": "baidu",
+                    "_authority": _source_authority(real_href),
+                })
         return results
 
     results = await asyncio.to_thread(_parse_baidu)
     if not results:
+        import sys
+        preview = html[:1000]
+        sys.stderr.write(
+            f"[Baidu] No parseable results for query '{query}'. "
+            f"HTML preview ({len(preview)}/{len(html)} bytes): {preview!r}\n"
+        )
+        sys.stderr.flush()
         raise DDGSException("Baidu returned no parseable results.")
     return results
 
@@ -1061,7 +1155,16 @@ async def _search_with_engine(
     query, engine, max_results=10, region="wt-wt", safesearch="off", timelimit=None
 ) -> list[dict]:
     if engine == "auto":
-        return await _search_ddgs(query, region, safesearch, timelimit, max_results)
+        try:
+            return await _search_ddgs(query, region, safesearch, timelimit, max_results)
+        except Exception:
+            try:
+                return await _search_baidu(query, max_results)
+            except Exception as baidu_err:
+                raise DDGSException(
+                    f"Auto engine failed: DuckDuckGo unreachable and "
+                    f"Baidu fallback also failed: {baidu_err}"
+                )
     if engine == "brave":
         return await _search_brave_api(query, max_results, region, safesearch, timelimit)
     if engine == "google":
@@ -1186,7 +1289,7 @@ async def _do_search(
             return (eng, [], f"[{eng}] keys not configured, skip")
 
         # Rate limit check for public APIs
-        if eng in ("brave", "google", "bing"):
+        if eng in ("brave", "google", "bing", "baidu"):
             limit_err = _check_rate_limit(eng)
             if limit_err:
                 return (eng, [], f"[{eng}] {limit_err}")

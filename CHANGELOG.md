@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Baidu scraping CAPTCHA**: `_search_baidu` now uses `httpx.AsyncClient` with
+  real cookie acquisition via a Baidu homepage pre-visit instead of a hardcoded
+  fake `BAIDUID` cookie that triggered CAPTCHA on every request.
+- **Stability suite crash**: Broadened the `auto`-engine fallback exception
+  catch in `_search_with_engine` from `DDGSException` to `Exception`, preventing
+  non-DDGS errors (e.g. `httpx.ConnectError`) from leaking into the MCP stdio
+  transport and crashing the session with an unhandled `TaskGroup` exception.
 - Medium-severity sweep: search engine resolution now rejects unknown engines,
   honors explicit per-call engine choices over `SEARCH_ENGINES`, expands
   `SEARCH_ENGINES=all`, validates search filters, awaits cancelled engine tasks,

@@ -3926,6 +3926,37 @@ site:evil.example" can reach fallback search query.
   but never referenced by any function.
 - **Fix**: Removed the dead code.
 
+### BUG-FIX-007: Baidu scraping — fake BAIDUID cookie rejected, CAPTCHA triggered on every request
+
+- **Status**: 🟢 fixed (commit pending)
+- **Severity**: high
+- **File**: `server.py`, `_search_baidu()`
+- **Discovered**: 2026-04-30, integration test run
+- **Root cause**: `_search_baidu` sent a hardcoded fake `BAIDUID` cookie via
+  `_fetch`. Baidu detected the invalid cookie and returned a CAPTCHA page on
+  every request. Additionally, `_search_baidu` used `_fetch` (which has no
+  cookie persistence) so the fake cookie was the only option.
+- **Fix**: Replaced `_fetch` with `httpx.AsyncClient` directly. Before
+  searching, visit `https://www.baidu.com/` to acquire a real `BAIDUID`
+  cookie via `Set-Cookie`. The `httpx.AsyncClient` session preserves
+  cookies across the homepage pre-visit and the search request.
+
+### BUG-FIX-008: Stability suite crash — non-DDGSException leaks through auto-engine fallback
+
+- **Status**: 🟢 fixed (commit pending)
+- **Severity**: critical
+- **File**: `server.py`, `_search_with_engine()`
+- **Discovered**: 2026-04-30, integration test run — full stability suite crash
+- **Root cause**: `_search_with_engine` for `engine="auto"` caught only
+  `DDGSException` before falling back to Baidu. When `_search_ddgs` raised a
+  different exception type (e.g. `httpx.ConnectError` or raw `Exception`), it
+  escaped the fallback chain and propagated into the MCP stdio transport's
+  `TaskGroup`, causing an unhandled `ExceptionGroup` that crashed the entire
+  session.
+- **Fix**: Broadened the `except` clause from `DDGSException` to `Exception`
+  so all error types trigger the Baidu fallback instead of leaking into the
+  transport layer.
+
 ---
 
 ---
@@ -3934,9 +3965,9 @@ site:evil.example" can reach fallback search query.
 
 | Status | Count |
 |--------|-------|
-| 🔴 open | 120 |
+| 🔴 open | 118 |
 | 🟡 in progress | 0 |
 | ⚪ merged | 1 |
 | ⚪ wontfix | 1 |
-| 🟢 fixed | 155 |
-| **Total** | **277** |
+| 🟢 fixed | 157 |
+| **Total** | **279** |

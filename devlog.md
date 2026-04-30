@@ -1,6 +1,23 @@
 # DevLog
 
-## v0.6.0 — 2026-04-29 (current)
+## v0.6.1 — 2026-04-30 (current)
+
+### Critical Fixes (integration test failures)
+
+- **Baidu CAPTCHA fix**: `_search_baidu` now uses `httpx.AsyncClient` directly
+  and acquires a real `BAIDUID` cookie by visiting the Baidu homepage before
+  searching, instead of sending a hardcoded fake cookie that Baidu rejected.
+- **Stability crash fix**: `_search_with_engine` auto-engine fallback now
+  catches `Exception` instead of only `DDGSException`, preventing non-DDGS
+  transport errors from leaking into the MCP stdio `TaskGroup` and crashing
+  the entire session.
+- **Tests**: 8 new regression tests covering Baidu CSS parsing (dual-strategy:
+  targeted selectors + structural fallback), CAPTCHA detection, engine fallback
+  logic, and rate limiting.
+
+### Previous Changes (v0.6.0)
+
+## v0.6.0 — 2026-04-29
 
 ### Regression Fixes
 
